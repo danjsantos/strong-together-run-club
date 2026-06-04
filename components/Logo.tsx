@@ -4,13 +4,13 @@ interface LogoProps {
   className?: string
 }
 
-export default function Logo({ className = 'h-10 w-auto' }: LogoProps) {
+export default function Logo({ className = 'h-16 w-auto' }: LogoProps) {
   return (
     <Image
       src="/logo.png"
       alt="Strong Together Run Club"
-      width={120}
-      height={120}
+      width={180}
+      height={180}
       className={className}
       style={{ objectFit: 'contain' }}
       priority
