@@ -1,0 +1,28 @@
+# ---------------------------------------------------------------
+# Strong Together Run Club — Cloudflare Pages via next-on-pages
+# ---------------------------------------------------------------
+name = "strong-together-run-club"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# Output dir produced by `npx @cloudflare/next-on-pages`
+pages_build_output_dir = ".vercel/output/static"
+
+# ---------------------------------------------------------------
+# Non-secret public env vars (inlined at build time via NEXT_PUBLIC_)
+# These are also set in Cloudflare Pages dashboard → Settings → Env Vars
+# ---------------------------------------------------------------
+[vars]
+NEXT_PUBLIC_SITE_URL = "https://strong-together-run-club.pages.dev"
+
+# ---------------------------------------------------------------
+# SECRETS — set these via CLI, NOT here (never commit secrets):
+#
+#   wrangler pages secret put NEXT_PUBLIC_SUPABASE_URL
+#   wrangler pages secret put NEXT_PUBLIC_SUPABASE_ANON_KEY
+#   wrangler pages secret put ADMIN_EMAILS
+#   wrangler pages secret put NEXT_PUBLIC_ADMIN_EMAILS
+#
+# Or set them in: Cloudflare Dashboard → Pages → Project → Settings
+#                 → Environment Variables (Production & Preview)
+# ---------------------------------------------------------------

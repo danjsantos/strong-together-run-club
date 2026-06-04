@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 64" fill="none">
+  <!-- Runner silhouette -->
+  <circle cx="24" cy="14" r="7" fill="#E91E8C"/>
+  <!-- Body -->
+  <path d="M24 21 L20 36 L26 30 L30 38" stroke="#E91E8C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Left arm -->
+  <path d="M22 26 L16 32" stroke="#E91E8C" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Right arm -->
+  <path d="M26 26 L32 31" stroke="#E91E8C" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Left leg -->
+  <path d="M20 36 L16 46" stroke="#E91E8C" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- Right leg -->
+  <path d="M30 38 L34 46" stroke="#E91E8C" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+
+  <!-- Text: STRONG TOGETHER -->
+  <text x="48" y="26" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="800" fill="#E91E8C" letter-spacing="1">STRONG TOGETHER</text>
+  <!-- Text: RUN CLUB -->
+  <text x="48" y="44" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#FFFFFF" letter-spacing="3">RUN CLUB</text>
+  <!-- Location tag -->
+  <text x="48" y="58" font-family="Arial, Helvetica, sans-serif" font-size="9" fill="#6B1A3A" letter-spacing="2">MYRTLE BEACH, SC</text>
+</svg>
