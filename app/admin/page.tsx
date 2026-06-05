@@ -19,17 +19,30 @@ export default async function AdminPage() {
     supabase.from('rsvps').select('*', { count: 'exact', head: true }),
   ])
 
-  // Fetch RSVP counts per event
   const eventIds = (events || []).map(e => e.id)
   let rsvpCounts: Record<string, number> = {}
+  let checkinCounts: Record<string, number> = {}
+
   if (eventIds.length > 0) {
-    const { data: rsvpData } = await supabase
-      .from('rsvps')
-      .select('event_id')
-      .in('event_id', eventIds)
+    const [{ data: rsvpData }, { data: checkinData }] = await Promise.all([
+      supabase
+        .from('rsvps')
+        .select('event_id')
+        .in('event_id', eventIds),
+      supabase
+        .from('checkins')
+        .select('event_id')
+        .in('event_id', eventIds),
+    ])
+
     if (rsvpData) {
       rsvpData.forEach(r => {
         rsvpCounts[r.event_id] = (rsvpCounts[r.event_id] || 0) + 1
+      })
+    }
+    if (checkinData) {
+      checkinData.forEach(c => {
+        checkinCounts[c.event_id] = (checkinCounts[c.event_id] || 0) + 1
       })
     }
   }
@@ -40,6 +53,7 @@ export default async function AdminPage() {
       memberCount={memberCount || 0}
       totalRsvps={totalRsvps || 0}
       rsvpCounts={rsvpCounts}
+      checkinCounts={checkinCounts}
     />
   )
 }

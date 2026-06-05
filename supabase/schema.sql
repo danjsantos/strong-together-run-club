@@ -11,6 +11,8 @@ create table if not exists public.profiles (
   name        text,
   email       text,
   avatar_url  text,
+  display_name text,
+  bio         text,
   is_admin    boolean not null default false,
   created_at  timestamptz not null default now()
 );
@@ -25,6 +27,25 @@ create policy "Users can update own profile"
 
 create policy "Users can insert own profile"
   on public.profiles for insert with check (auth.uid() = id);
+
+-- --------------------------------------------------------
+-- checkins
+-- --------------------------------------------------------
+create table if not exists public.checkins (
+  id          uuid primary key default gen_random_uuid(),
+  profile_id  uuid not null references public.profiles(id) on delete cascade,
+  event_id    uuid not null references public.events(id) on delete cascade,
+  checked_in_at timestamptz not null default now(),
+  unique(profile_id, event_id)
+);
+
+alter table public.checkins enable row level security;
+
+create policy "Public can read checkins"
+  on public.checkins for select using (true);
+
+create policy "Users can insert own checkin"
+  on public.checkins for insert with check (auth.uid() = profile_id);
 
 -- --------------------------------------------------------
 -- events
@@ -150,6 +171,29 @@ create policy "Authenticated users can upload photos"
 create policy "Authenticated users can delete own photos"
   on storage.objects for delete
   using (bucket_id = 'photos' and auth.uid() = owner);
+
+-- --------------------------------------------------------
+-- Storage bucket for avatars
+-- --------------------------------------------------------
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+create policy "Avatars are publicly accessible"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+create policy "Authenticated users can upload avatars"
+  on storage.objects for insert
+  with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+
+create policy "Authenticated users can update own avatars"
+  on storage.objects for update
+  using (bucket_id = 'avatars' and auth.uid() = owner);
+
+create policy "Authenticated users can delete own avatars"
+  on storage.objects for delete
+  using (bucket_id = 'avatars' and auth.uid() = owner);
 
 -- --------------------------------------------------------
 -- Storage bucket for event-photos (gallery feature)

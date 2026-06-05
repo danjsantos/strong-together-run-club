@@ -20,13 +20,15 @@ interface Props {
   memberCount: number
   totalRsvps: number
   rsvpCounts: Record<string, number>
+  checkinCounts: Record<string, number>
 }
 
-export default function AdminDashboardClient({ events, memberCount, totalRsvps, rsvpCounts }: Props) {
+export default function AdminDashboardClient({ events, memberCount, totalRsvps, rsvpCounts, checkinCounts }: Props) {
   const { t, language } = useLanguage()
   const router = useRouter()
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null)
   const [rsvpList, setRsvpList] = useState<{ name: string; email: string; created_at: string }[]>([])
+  const [checkinList, setCheckinList] = useState<{ profile_id: string; checked_in_at: string; profiles: { name: string | null; display_name: string | null } | null }[]>([])
   const [loadingRsvps, setLoadingRsvps] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -39,9 +41,22 @@ export default function AdminDashboardClient({ events, memberCount, totalRsvps, 
     }
     setExpandedEvent(eventId)
     setLoadingRsvps(true)
-    const res = await fetch(`/api/rsvp?eventId=${eventId}`)
-    const data = await res.json()
-    setRsvpList(data.rsvps || [])
+    setRsvpList([])
+    setCheckinList([])
+
+    const [rsvpRes, checkinRes] = await Promise.all([
+      fetch(`/api/rsvp?eventId=${eventId}`),
+      fetch(`/api/checkin?eventId=${eventId}`),
+    ])
+
+    const rsvpData = await rsvpRes.json()
+    setRsvpList(rsvpData.rsvps || [])
+
+    if (checkinRes.ok) {
+      const checkinData = await checkinRes.json()
+      setCheckinList(checkinData.checkins || [])
+    }
+
     setLoadingRsvps(false)
   }
 
@@ -100,7 +115,8 @@ export default function AdminDashboardClient({ events, memberCount, totalRsvps, 
           {events.map((event) => {
             const title = language === 'pt' && event.title_pt ? event.title_pt : event.title
             const isExpanded = expandedEvent === event.id
-            const count = rsvpCounts[event.id] || 0
+            const rsvpCount = rsvpCounts[event.id] || 0
+            const checkinCount = checkinCounts[event.id] || 0
             const isPast = new Date(event.date) < new Date()
 
             return (
@@ -122,10 +138,16 @@ export default function AdminDashboardClient({ events, memberCount, totalRsvps, 
                     </p>
                   </div>
 
-                  {/* RSVP badge */}
-                  <div className="flex items-center gap-1 bg-white/5 rounded-full px-3 py-1">
-                    <span className="text-brand-pink text-xs font-bold">{count}</span>
-                    <span className="text-white/40 text-xs">{t.admin.rsvps}</span>
+                  {/* RSVP + Check-in badges */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 bg-white/5 rounded-full px-3 py-1">
+                      <span className="text-brand-pink text-xs font-bold">{rsvpCount}</span>
+                      <span className="text-white/40 text-xs">{t.admin.rsvps}</span>
+                    </div>
+                    <div className="flex items-center gap-1 bg-green-500/10 rounded-full px-3 py-1 border border-green-500/20">
+                      <span className="text-green-400 text-xs font-bold">{checkinCount}</span>
+                      <span className="text-white/40 text-xs">{t.admin.checkedIn}</span>
+                    </div>
                   </div>
 
                   {/* Actions */}
@@ -149,29 +171,78 @@ export default function AdminDashboardClient({ events, memberCount, totalRsvps, 
                   </div>
                 </div>
 
-                {/* RSVP accordion */}
+                {/* RSVP + Check-in accordion */}
                 {isExpanded && (
                   <div className="border-t border-white/10 px-5 py-4">
                     {loadingRsvps ? (
                       <p className="text-white/30 text-xs">{t.common.loading}</p>
-                    ) : rsvpList.length === 0 ? (
-                      <p className="text-white/30 text-xs">{t.admin.noRsvps}</p>
                     ) : (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-white/40 text-xs mb-2">
-                          {rsvpList.length} {t.admin.rsvps}
-                        </p>
-                        {rsvpList.map((r, i) => (
-                          <div key={i} className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2">
-                            <div className="w-7 h-7 rounded-full bg-brand-pink/20 flex items-center justify-center text-brand-pink text-xs font-bold">
-                              {r.name.charAt(0).toUpperCase()}
+                      <div className="flex flex-col gap-4">
+                        {/* RSVP List */}
+                        <div>
+                          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+                            {t.admin.rsvps} ({rsvpList.length})
+                          </p>
+                          {rsvpList.length === 0 ? (
+                            <p className="text-white/30 text-xs">{t.admin.noRsvps}</p>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              {rsvpList.map((r, i) => (
+                                <div key={i} className="flex items-center gap-3 bg-white/5 rounded-xl px-3 py-2">
+                                  <div className="w-7 h-7 rounded-full bg-brand-pink/20 flex items-center justify-center text-brand-pink text-xs font-bold">
+                                    {r.name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <p className="text-white text-xs font-medium">{r.name}</p>
+                                    <p className="text-white/40 text-xs">{r.email}</p>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                            <div>
-                              <p className="text-white text-xs font-medium">{r.name}</p>
-                              <p className="text-white/40 text-xs">{r.email}</p>
+                          )}
+                        </div>
+
+                        {/* Check-in List */}
+                        <div>
+                          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2">
+                            {t.admin.checkedIn} ({checkinList.length})
+                          </p>
+                          {checkinList.length === 0 ? (
+                            <p className="text-white/30 text-xs">No check-ins yet.</p>
+                          ) : (
+                            <div className="flex flex-col gap-2">
+                              {checkinList.map((c, i) => {
+                                const name = c.profiles?.display_name || c.profiles?.name || 'Runner'
+                                return (
+                                  <div key={i} className="flex items-center gap-3 bg-green-500/5 rounded-xl px-3 py-2 border border-green-500/10">
+                                    <div className="w-7 h-7 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 text-xs font-bold">
+                                      {name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <p className="text-white text-xs font-medium">{name}</p>
+                                    </div>
+                                    <div className="ml-auto">
+                                      <span className="text-green-400 text-xs">✓ Checked in</span>
+                                    </div>
+                                  </div>
+                                )
+                              })}
                             </div>
+                          )}
+                        </div>
+
+                        {/* Summary bar */}
+                        {rsvpList.length > 0 && (
+                          <div className="bg-white/5 rounded-xl px-4 py-3 flex items-center justify-between">
+                            <span className="text-white/40 text-xs">Attendance rate</span>
+                            <span className="text-white font-bold text-sm">
+                              {checkinList.length}/{rsvpList.length}
+                              <span className="text-white/40 font-normal ml-1 text-xs">
+                                ({rsvpList.length > 0 ? Math.round((checkinList.length / rsvpList.length) * 100) : 0}%)
+                              </span>
+                            </span>
                           </div>
-                        ))}
+                        )}
                       </div>
                     )}
                   </div>

@@ -48,6 +48,7 @@ export default function Header() {
     { href: '/', label: t.nav.home },
     { href: '/next-run', label: t.nav.nextRun },
     { href: '/gallery', label: t.nav.gallery },
+    { href: '/leaderboard', label: t.nav.leaderboard },
     ...(isAdmin ? [{ href: '/admin', label: t.nav.admin }] : []),
   ]
 
@@ -90,14 +91,26 @@ export default function Header() {
             <LanguageToggle />
             {user ? (
               <div className="flex items-center gap-3">
-                {user.user_metadata?.avatar_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={user.user_metadata.avatar_url as string}
-                    alt="avatar"
-                    className="w-8 h-8 rounded-full border-2 border-brand-pink"
-                  />
-                )}
+                <Link
+                  href="/profile"
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  title={t.nav.profile}
+                >
+                  {user.user_metadata?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={user.user_metadata.avatar_url as string}
+                      alt="avatar"
+                      className="w-8 h-8 rounded-full border-2 border-brand-pink"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-brand-pink/20 border-2 border-brand-pink flex items-center justify-center">
+                      <span className="text-brand-pink text-xs font-bold">
+                        {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="text-sm text-white/60 hover:text-white transition-colors"
@@ -135,7 +148,7 @@ export default function Header() {
         {/* Mobile menu */}
         <div
           className={`md:hidden overflow-hidden transition-all duration-300 ${
-            isMenuOpen ? 'max-h-64 pb-4' : 'max-h-0'
+            isMenuOpen ? 'max-h-96 pb-4' : 'max-h-0'
           }`}
         >
           <div className="border-t border-white/10 pt-4 flex flex-col gap-4">
@@ -152,9 +165,18 @@ export default function Header() {
               </Link>
             ))}
             {user ? (
-              <button onClick={handleLogout} className="text-sm text-white/60 text-left">
-                {t.nav.logout}
-              </button>
+              <>
+                <Link
+                  href="/profile"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`text-sm font-medium ${pathname === '/profile' ? 'text-brand-pink' : 'text-white/80'}`}
+                >
+                  {t.nav.profile}
+                </Link>
+                <button onClick={handleLogout} className="text-sm text-white/60 text-left">
+                  {t.nav.logout}
+                </button>
+              </>
             ) : (
               <Link
                 href="/login"

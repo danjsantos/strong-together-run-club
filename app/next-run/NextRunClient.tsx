@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import WeatherWidget from '@/components/WeatherWidget'
 import RSVPForm from '@/components/RSVPForm'
+import CheckInButton from '@/components/CheckInButton'
 import { formatDate, formatTime } from '@/lib/utils'
 interface Event {
   id: string
@@ -97,6 +98,7 @@ export default function NextRunClient({ event, initialRsvpCount }: NextRunClient
           </div>
           <div className="flex flex-col gap-5">
             <RSVPForm eventId={event.id} onRSVPChange={setRsvpCount} />
+            <CheckInButton eventId={event.id} eventDate={event.date} />
             <WeatherWidget />
           </div>
         </div>
