@@ -47,6 +47,7 @@ export default function Header() {
   const navLinks = [
     { href: '/', label: t.nav.home },
     { href: '/next-run', label: t.nav.nextRun },
+    { href: '/gallery', label: t.nav.gallery },
     ...(isAdmin ? [{ href: '/admin', label: t.nav.admin }] : []),
   ]
 
