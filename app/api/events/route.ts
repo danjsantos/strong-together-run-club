@@ -2,8 +2,10 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
-function makeSupabase() {
+/** Anon client — used only to verify the session/admin status */
+function makeAnonSupabase() {
   const cookieStore = cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +23,8 @@ function makeSupabase() {
   )
 }
 
-async function requireAdmin(supabase: ReturnType<typeof makeSupabase>) {
+async function requireAdmin() {
+  const supabase = makeAnonSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
@@ -30,8 +33,7 @@ async function requireAdmin(supabase: ReturnType<typeof makeSupabase>) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = makeSupabase()
-  const user = await requireAdmin(supabase)
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
@@ -41,7 +43,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  const { data, error } = await supabase.from('events').insert({
+  // Use service_role client to bypass RLS for the insert
+  const adminDb = createAdminClient()
+  const { data, error } = await adminDb.from('events').insert({
     title: title.trim(),
     title_pt: title_pt?.trim() || null,
     description: description?.trim() || null,
@@ -60,8 +64,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const supabase = makeSupabase()
-  const user = await requireAdmin(supabase)
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
@@ -69,7 +72,8 @@ export async function PUT(request: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
-  const { data, error } = await supabase
+  const adminDb = createAdminClient()
+  const { data, error } = await adminDb
     .from('events')
     .update({
       title: title?.trim(),
@@ -93,14 +97,14 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const supabase = makeSupabase()
-  const user = await requireAdmin(supabase)
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await request.json()
   if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
-  const { error } = await supabase.from('events').delete().eq('id', id)
+  const adminDb = createAdminClient()
+  const { error } = await adminDb.from('events').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true })

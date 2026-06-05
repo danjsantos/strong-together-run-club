@@ -2,8 +2,9 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
-function makeSupabase() {
+function makeAnonSupabase() {
   const cookieStore = cookies()
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +22,8 @@ function makeSupabase() {
   )
 }
 
-async function requireAdmin(supabase: ReturnType<typeof makeSupabase>) {
+async function requireAdmin() {
+  const supabase = makeAnonSupabase()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
@@ -29,9 +31,9 @@ async function requireAdmin(supabase: ReturnType<typeof makeSupabase>) {
   return user
 }
 
-// GET: List photos for a specific event (public)
+// GET: List photos for a specific event (public — anon key is fine)
 export async function GET(request: NextRequest) {
-  const supabase = makeSupabase()
+  const supabase = makeAnonSupabase()
   const { searchParams } = new URL(request.url)
   const eventId = searchParams.get('eventId')
 
@@ -50,8 +52,7 @@ export async function GET(request: NextRequest) {
 
 // POST: Save photo metadata after upload (admin only)
 export async function POST(request: NextRequest) {
-  const supabase = makeSupabase()
-  const user = await requireAdmin(supabase)
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
@@ -61,7 +62,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields: event_id, photo_url' }, { status: 400 })
   }
 
-  const { data, error } = await supabase
+  // Use service_role to bypass the "insert with check (false)" RLS policy
+  const adminDb = createAdminClient()
+  const { data, error } = await adminDb
     .from('event_photos')
     .insert({ event_id, photo_url, caption: caption || null })
     .select()
@@ -72,30 +75,33 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({ photo: data }, { status: 201 })
 }
 
-// DELETE: Delete a photo record and storage object (admin only)
+// DELETE: Delete a photo record and its storage object (admin only)
 export async function DELETE(request: NextRequest) {
-  const supabase = makeSupabase()
-  const user = await requireAdmin(supabase)
+  const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id, photo_url } = await request.json()
   if (!id) return NextResponse.json({ error: 'Missing photo id' }, { status: 400 })
 
-  // Delete from storage if URL is from our bucket
+  const adminDb = createAdminClient()
+
+  // Delete from storage first (best-effort)
   if (photo_url) {
     try {
       const url = new URL(photo_url)
-      const pathParts = url.pathname.split('/event-photos/')
-      if (pathParts.length > 1) {
-        const storagePath = pathParts[1]
-        await supabase.storage.from('event-photos').remove([storagePath])
+      const marker = '/object/public/event-photos/'
+      const idx = url.pathname.indexOf(marker)
+      if (idx !== -1) {
+        const storagePath = decodeURIComponent(url.pathname.slice(idx + marker.length))
+        await adminDb.storage.from('event-photos').remove([storagePath])
       }
     } catch {
-      // Ignore storage deletion errors — proceed with DB deletion
+      // Ignore storage errors — proceed with DB deletion
     }
   }
 
-  const { error } = await supabase.from('event_photos').delete().eq('id', id)
+  // Delete the DB record using service_role to bypass RLS
+  const { error } = await adminDb.from('event_photos').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true })
