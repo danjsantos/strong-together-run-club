@@ -71,7 +71,9 @@ export default function AdminGalleryClient() {
     }
   }
 
+  // Ensure the storage bucket exists when the admin panel loads
   useEffect(() => {
+    fetch('/api/gallery/setup', { method: 'POST' }).catch(() => null)
     loadEvents()
   }, [])
 
