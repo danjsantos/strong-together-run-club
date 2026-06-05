@@ -42,7 +42,7 @@ export async function GET() {
 
   // Get photo counts per event
   const eventIds = (events || []).map(e => e.id)
-  let photoCounts: Record<string, number> = {}
+  const photoCounts: Record<string, number> = {}
   if (eventIds.length > 0) {
     const { data: photoData } = await supabase
       .from('event_photos')
@@ -64,33 +64,43 @@ export async function GET() {
 }
 
 // POST: Create a new gallery event (admin only)
+// Accepts: { title, date (YYYY-MM-DD), location }
 export async function POST(request: NextRequest) {
   const supabase = makeSupabase()
   const user = await requireAdmin(supabase)
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { name, date, location } = body
+  // Accept both `title` and legacy `name` from the client form
+  const title = (body.title || body.name || '').trim()
+  const date = body.date
+  const location = (body.location || '').trim()
 
-  if (!name?.trim() || !date || !location?.trim()) {
-    return NextResponse.json({ error: 'Missing required fields: name, date, location' }, { status: 400 })
+  if (!title || !date || !location) {
+    return NextResponse.json(
+      { error: 'Missing required fields: title, date, location' },
+      { status: 400 }
+    )
   }
 
-  // We store gallery events in the existing events table with a name mapping
+  // The events table uses timestamptz for `date`.
+  // If the client sends a plain date string (YYYY-MM-DD), append midnight UTC.
+  const dateValue = date.includes('T') ? date : `${date}T00:00:00Z`
+
   const { data, error } = await supabase
     .from('events')
     .insert({
-      title: name.trim(),
-      date,
-      location: location.trim(),
-      is_active: false, // gallery-only events don't show in next-run
+      title,
+      date: dateValue,
+      location,
+      is_active: false, // gallery-only events don't appear in the next-run feed
     })
-    .select()
+    .select('id, title, title_pt, date, location, location_pt, cover_photo_url, created_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ event: data }, { status: 201 })
+  return NextResponse.json({ event: { ...data, photo_count: 0 } }, { status: 201 })
 }
 
 // DELETE: Delete a gallery event (admin only)

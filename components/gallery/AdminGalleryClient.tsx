@@ -24,6 +24,13 @@ interface GalleryEvent {
   photo_count: number
 }
 
+// Form state uses the same column names as the DB
+interface NewEventForm {
+  title: string
+  date: string
+  location: string
+}
+
 export default function AdminGalleryClient() {
   const { t, language } = useLanguage()
   const [events, setEvents] = useState<GalleryEvent[]>([])
@@ -33,7 +40,7 @@ export default function AdminGalleryClient() {
   const [uploading, setUploading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [showNewEventForm, setShowNewEventForm] = useState(false)
-  const [newEvent, setNewEvent] = useState({ name: '', date: '', location: '' })
+  const [newEvent, setNewEvent] = useState<NewEventForm>({ title: '', date: '', location: '' })
   const [createError, setCreateError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
@@ -84,17 +91,26 @@ export default function AdminGalleryClient() {
       const res = await fetch('/api/gallery/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEvent),
+        // Send `title`, `date`, `location` — matching the DB column names
+        body: JSON.stringify({
+          title: newEvent.title.trim(),
+          date: newEvent.date,
+          location: newEvent.location.trim(),
+        }),
       })
       if (!res.ok) {
         const { error } = await res.json() as { error: string }
         throw new Error(error)
       }
-      setNewEvent({ name: '', date: '', location: '' })
+      const { event: created } = await res.json() as { event: GalleryEvent }
+      // Optimistically prepend the new event so it's immediately visible
+      setEvents(prev => [created, ...prev])
+      setNewEvent({ title: '', date: '', location: '' })
       setShowNewEventForm(false)
-      await loadEvents()
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create event')
+      // Refresh from server on error to stay in sync
+      await loadEvents()
     } finally {
       setCreating(false)
     }
@@ -110,13 +126,11 @@ export default function AdminGalleryClient() {
 
     try {
       for (const file of Array.from(files)) {
-        // Validate file type
         if (!file.type.startsWith('image/')) {
           setUploadError(`${file.name} is not an image file`)
           continue
         }
 
-        // Upload to Supabase Storage
         const ext = file.name.split('.').pop() || 'jpg'
         const filename = `${selectedEvent.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
@@ -126,12 +140,10 @@ export default function AdminGalleryClient() {
 
         if (storageError) throw new Error(storageError.message)
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('event-photos')
           .getPublicUrl(filename)
 
-        // Save metadata to DB
         const res = await fetch('/api/gallery/photos', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -146,6 +158,7 @@ export default function AdminGalleryClient() {
       setUploadSuccess(true)
       setTimeout(() => setUploadSuccess(false), 3000)
       await loadPhotos(selectedEvent.id)
+      // Refresh event list to update photo counts
       await loadEvents()
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed')
@@ -165,7 +178,13 @@ export default function AdminGalleryClient() {
       })
       if (!res.ok) throw new Error('Delete failed')
       setPhotos(prev => prev.filter(p => p.id !== photo.id))
-      await loadEvents()
+      setEvents(prev =>
+        prev.map(ev =>
+          ev.id === selectedEvent?.id
+            ? { ...ev, photo_count: Math.max(0, ev.photo_count - 1) }
+            : ev
+        )
+      )
     } catch {
       // ignore
     }
@@ -181,7 +200,9 @@ export default function AdminGalleryClient() {
       })
       if (!res.ok) throw new Error('Failed to set cover')
       setSelectedEvent(prev => prev ? { ...prev, cover_photo_url: photoUrl } : prev)
-      setEvents(prev => prev.map(e => e.id === selectedEvent.id ? { ...e, cover_photo_url: photoUrl } : e))
+      setEvents(prev =>
+        prev.map(e => e.id === selectedEvent.id ? { ...e, cover_photo_url: photoUrl } : e)
+      )
     } catch {
       // ignore
     }
@@ -197,7 +218,7 @@ export default function AdminGalleryClient() {
       })
       if (!res.ok) throw new Error('Delete failed')
       if (selectedEvent?.id === event.id) setSelectedEvent(null)
-      await loadEvents()
+      setEvents(prev => prev.filter(e => e.id !== event.id))
     } catch {
       // ignore
     }
@@ -228,18 +249,22 @@ export default function AdminGalleryClient() {
           <h2 className="text-white font-bold text-lg mb-4">{t.gallery.newEvent}</h2>
           <form onSubmit={handleCreateEvent} className="space-y-4">
             <div>
-              <label className="block text-white/70 text-sm font-medium mb-1.5">{t.gallery.eventName} *</label>
+              <label className="block text-white/70 text-sm font-medium mb-1.5">
+                {t.gallery.eventName} *
+              </label>
               <input
                 type="text"
-                value={newEvent.name}
-                onChange={e => setNewEvent(prev => ({ ...prev, name: e.target.value }))}
+                value={newEvent.title}
+                onChange={e => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
                 placeholder="e.g. Saturday Morning 5K"
                 required
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-brand-pink/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-white/70 text-sm font-medium mb-1.5">{t.gallery.eventDate} *</label>
+              <label className="block text-white/70 text-sm font-medium mb-1.5">
+                {t.gallery.eventDate} *
+              </label>
               <input
                 type="date"
                 value={newEvent.date}
@@ -249,7 +274,9 @@ export default function AdminGalleryClient() {
               />
             </div>
             <div>
-              <label className="block text-white/70 text-sm font-medium mb-1.5">{t.gallery.eventLocation} *</label>
+              <label className="block text-white/70 text-sm font-medium mb-1.5">
+                {t.gallery.eventLocation} *
+              </label>
               <input
                 type="text"
                 value={newEvent.location}
@@ -259,7 +286,9 @@ export default function AdminGalleryClient() {
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-brand-pink/50 transition-colors"
               />
             </div>
-            {createError && <p className="text-red-400 text-sm">{createError}</p>}
+            {createError && (
+              <p className="text-red-400 text-sm">{createError}</p>
+            )}
             <div className="flex gap-3">
               <button
                 type="submit"
@@ -283,7 +312,9 @@ export default function AdminGalleryClient() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Events list */}
         <div className="lg:col-span-1">
-          <h2 className="text-white/70 text-xs font-bold uppercase tracking-widest mb-3">{t.gallery.events}</h2>
+          <h2 className="text-white/70 text-xs font-bold uppercase tracking-widest mb-3">
+            {t.gallery.events}
+          </h2>
           {loading ? (
             <div className="flex items-center justify-center h-32">
               <div className="w-6 h-6 border-2 border-brand-pink border-t-transparent rounded-full animate-spin" />
@@ -293,7 +324,8 @@ export default function AdminGalleryClient() {
           ) : (
             <div className="space-y-2">
               {events.map(event => {
-                const displayTitle = language === 'pt' && event.title_pt ? event.title_pt : event.title
+                const displayTitle =
+                  language === 'pt' && event.title_pt ? event.title_pt : event.title
                 const isSelected = selectedEvent?.id === event.id
                 return (
                   <div
@@ -312,24 +344,44 @@ export default function AdminGalleryClient() {
                       <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 bg-brand-wine/30">
                         {event.cover_photo_url ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={event.cover_photo_url} alt="" className="w-full h-full object-cover" />
+                          <img
+                            src={event.cover_photo_url}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <svg className="w-5 h-5 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            <svg
+                              className="w-5 h-5 text-white/20"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
                             </svg>
                           </div>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-semibold text-sm truncate">{displayTitle}</p>
-                        <p className="text-white/40 text-xs">{formatShortDate(event.date, language)} · {event.photo_count} {t.gallery.photos}</p>
+                        <p className="text-white/40 text-xs">
+                          {formatShortDate(event.date, language)} · {event.photo_count}{' '}
+                          {t.gallery.photos}
+                        </p>
                       </div>
                     </div>
                     {/* Delete event button */}
                     <div className="px-3 pb-2 flex justify-end">
                       <button
-                        onClick={(e) => { e.stopPropagation(); handleDeleteEvent(event) }}
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleDeleteEvent(event)
+                        }}
                         className="text-red-400/60 hover:text-red-400 text-xs transition-colors"
                       >
                         {t.common.delete}
@@ -345,19 +397,30 @@ export default function AdminGalleryClient() {
         {/* Photo management panel */}
         <div className="lg:col-span-2">
           {!selectedEvent ? (
-            <div className="h-full min-h-[300px] flex items-center justify-center rounded-2xl border border-brand-wine/20 bg-white/3">
+            <div className="h-full min-h-[300px] flex items-center justify-center rounded-2xl border border-brand-wine/20 bg-white/[0.03]">
               <p className="text-white/30 text-sm">{t.gallery.selectEvent}</p>
             </div>
           ) : (
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h2 className="text-white font-bold text-lg">
-                  {language === 'pt' && selectedEvent.title_pt ? selectedEvent.title_pt : selectedEvent.title}
+                  {language === 'pt' && selectedEvent.title_pt
+                    ? selectedEvent.title_pt
+                    : selectedEvent.title}
                 </h2>
                 {/* Upload button */}
-                <label className={`bg-brand-pink text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer hover:bg-brand-pink/90 transition-colors flex items-center gap-2 self-start sm:self-auto ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                <label
+                  className={`bg-brand-pink text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer hover:bg-brand-pink/90 transition-colors flex items-center gap-2 self-start sm:self-auto ${
+                    uploading ? 'opacity-50 pointer-events-none' : ''
+                  }`}
+                >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                    />
                   </svg>
                   {uploading ? t.common.loading : t.gallery.uploadPhotos}
                   <input
@@ -382,7 +445,7 @@ export default function AdminGalleryClient() {
                 </div>
               )}
 
-              {/* Drag & drop hint */}
+              {/* Drag & drop zone */}
               <div
                 className="border-2 border-dashed border-brand-wine/40 rounded-xl p-6 text-center cursor-pointer hover:border-brand-pink/40 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
@@ -392,8 +455,18 @@ export default function AdminGalleryClient() {
                   if (e.dataTransfer.files.length > 0) handleUploadPhotos(e.dataTransfer.files)
                 }}
               >
-                <svg className="w-8 h-8 text-white/20 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                <svg
+                  className="w-8 h-8 text-white/20 mx-auto mb-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                  />
                 </svg>
                 <p className="text-white/40 text-sm">{t.gallery.dragDrop}</p>
               </div>
@@ -402,7 +475,10 @@ export default function AdminGalleryClient() {
               {photos.length > 0 ? (
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {photos.map(photo => (
-                    <div key={photo.id} className="relative group aspect-square rounded-lg overflow-hidden bg-brand-wine/20">
+                    <div
+                      key={photo.id}
+                      className="relative group aspect-square rounded-lg overflow-hidden bg-brand-wine/20"
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={photo.photo_url}

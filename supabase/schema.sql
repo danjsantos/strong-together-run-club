@@ -45,6 +45,13 @@ create table if not exists public.events (
   created_at          timestamptz not null default now()
 );
 
+-- Migration: add cover_photo_url if the table already exists without it
+alter table public.events add column if not exists cover_photo_url text;
+
+-- Migration: ensure location is not null (it is defined as NOT NULL above for new tables,
+-- but existing tables created before this column was added may need the column added first)
+alter table public.events add column if not exists location text;
+
 alter table public.events enable row level security;
 
 create policy "Events are publicly readable"
@@ -88,7 +95,7 @@ create policy "Users can delete own RSVP"
   on public.rsvps for delete using (auth.uid() = user_id);
 
 -- --------------------------------------------------------
--- photos
+-- photos (legacy — homepage gallery)
 -- --------------------------------------------------------
 create table if not exists public.photos (
   id          uuid primary key default gen_random_uuid(),
@@ -104,7 +111,7 @@ create policy "Photos are publicly readable"
   on public.photos for select using (true);
 
 -- --------------------------------------------------------
--- event_photos
+-- event_photos (gallery feature)
 -- --------------------------------------------------------
 create table if not exists public.event_photos (
   id          uuid primary key default gen_random_uuid(),
@@ -126,7 +133,7 @@ create policy "Authenticated users cannot delete event photos directly"
   on public.event_photos for delete using (false);
 
 -- --------------------------------------------------------
--- Storage bucket for photos
+-- Storage bucket for photos (legacy)
 -- --------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('photos', 'photos', true)
@@ -145,7 +152,7 @@ create policy "Authenticated users can delete own photos"
   using (bucket_id = 'photos' and auth.uid() = owner);
 
 -- --------------------------------------------------------
--- Storage bucket for event-photos
+-- Storage bucket for event-photos (gallery feature)
 -- --------------------------------------------------------
 insert into storage.buckets (id, name, public)
 values ('event-photos', 'event-photos', true)
