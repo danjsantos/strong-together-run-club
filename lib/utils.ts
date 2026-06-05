@@ -2,7 +2,8 @@ import type { Language } from './translations'
 
 export function formatDate(dateStr: string, language: Language): string {
   const date = new Date(dateStr)
-  return date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+  const locale = language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US'
+  return date.toLocaleDateString(locale, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -12,7 +13,8 @@ export function formatDate(dateStr: string, language: Language): string {
 
 export function formatTime(dateStr: string, language: Language): string {
   const date = new Date(dateStr)
-  return date.toLocaleTimeString(language === 'pt' ? 'pt-BR' : 'en-US', {
+  const locale = language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US'
+  return date.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
   })
@@ -20,7 +22,8 @@ export function formatTime(dateStr: string, language: Language): string {
 
 export function formatShortDate(dateStr: string, language: Language): string {
   const date = new Date(dateStr)
-  return date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', {
+  const locale = language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US'
+  return date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
   })
@@ -31,31 +34,31 @@ export function isUpcoming(dateStr: string): boolean {
 }
 
 export function getWeatherDescription(code: number, language: Language): string {
-  const descriptions: Record<number, { en: string; pt: string }> = {
-    0: { en: 'Clear sky', pt: 'Céu limpo' },
-    1: { en: 'Mainly clear', pt: 'Principalmente limpo' },
-    2: { en: 'Partly cloudy', pt: 'Parcialmente nublado' },
-    3: { en: 'Overcast', pt: 'Nublado' },
-    45: { en: 'Foggy', pt: 'Neblina' },
-    48: { en: 'Icy fog', pt: 'Neblina gelada' },
-    51: { en: 'Light drizzle', pt: 'Garoa leve' },
-    53: { en: 'Drizzle', pt: 'Garoa' },
-    55: { en: 'Heavy drizzle', pt: 'Garoa intensa' },
-    61: { en: 'Light rain', pt: 'Chuva leve' },
-    63: { en: 'Rain', pt: 'Chuva' },
-    65: { en: 'Heavy rain', pt: 'Chuva intensa' },
-    71: { en: 'Light snow', pt: 'Neve leve' },
-    73: { en: 'Snow', pt: 'Neve' },
-    75: { en: 'Heavy snow', pt: 'Neve intensa' },
-    80: { en: 'Rain showers', pt: 'Pancadas de chuva' },
-    81: { en: 'Rain showers', pt: 'Pancadas de chuva' },
-    82: { en: 'Heavy showers', pt: 'Pancadas intensas' },
-    95: { en: 'Thunderstorm', pt: 'Tempestade' },
-    96: { en: 'Thunderstorm', pt: 'Tempestade com granizo' },
-    99: { en: 'Thunderstorm', pt: 'Tempestade severa' },
+  const descriptions: Record<number, { en: string; pt: string; es: string }> = {
+    0: { en: 'Clear sky', pt: 'Céu limpo', es: 'Cielo despejado' },
+    1: { en: 'Mainly clear', pt: 'Principalmente limpo', es: 'Principalmente despejado' },
+    2: { en: 'Partly cloudy', pt: 'Parcialmente nublado', es: 'Parcialmente nublado' },
+    3: { en: 'Overcast', pt: 'Nublado', es: 'Nublado' },
+    45: { en: 'Foggy', pt: 'Neblina', es: 'Neblina' },
+    48: { en: 'Icy fog', pt: 'Neblina gelada', es: 'Niebla helada' },
+    51: { en: 'Light drizzle', pt: 'Garoa leve', es: 'Llovizna ligera' },
+    53: { en: 'Drizzle', pt: 'Garoa', es: 'Llovizna' },
+    55: { en: 'Heavy drizzle', pt: 'Garoa intensa', es: 'Llovizna intensa' },
+    61: { en: 'Light rain', pt: 'Chuva leve', es: 'Lluvia ligera' },
+    63: { en: 'Rain', pt: 'Chuva', es: 'Lluvia' },
+    65: { en: 'Heavy rain', pt: 'Chuva intensa', es: 'Lluvia intensa' },
+    71: { en: 'Light snow', pt: 'Neve leve', es: 'Nieve ligera' },
+    73: { en: 'Snow', pt: 'Neve', es: 'Nieve' },
+    75: { en: 'Heavy snow', pt: 'Neve intensa', es: 'Nieve intensa' },
+    80: { en: 'Rain showers', pt: 'Pancadas de chuva', es: 'Chubascos' },
+    81: { en: 'Rain showers', pt: 'Pancadas de chuva', es: 'Chubascos' },
+    82: { en: 'Heavy showers', pt: 'Pancadas intensas', es: 'Chubascos intensos' },
+    95: { en: 'Thunderstorm', pt: 'Tempestade', es: 'Tormenta' },
+    96: { en: 'Thunderstorm', pt: 'Tempestade com granizo', es: 'Tormenta con granizo' },
+    99: { en: 'Thunderstorm', pt: 'Tempestade severa', es: 'Tormenta severa' },
   }
   const entry = descriptions[code]
-  if (!entry) return language === 'pt' ? 'Desconhecido' : 'Unknown'
+  if (!entry) return language === 'pt' ? 'Desconhecido' : language === 'es' ? 'Desconocido' : 'Unknown'
   return entry[language]
 }
 

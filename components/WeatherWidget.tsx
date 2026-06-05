@@ -73,7 +73,8 @@ export default function WeatherWidget() {
 
   const dayLabels = daily.time.map((d) => {
     const date = new Date(d + 'T12:00:00')
-    return date.toLocaleDateString(language === 'pt' ? 'pt-BR' : 'en-US', { weekday: 'short' })
+    const locale = language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US'
+    return date.toLocaleDateString(locale, { weekday: 'short' })
   })
 
   return (
