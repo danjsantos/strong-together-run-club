@@ -33,12 +33,25 @@ async function requireAdmin(supabase: ReturnType<typeof makeSupabase>) {
 export async function GET() {
   const supabase = makeSupabase()
 
+  // NOTE: cover_photo_url may not exist yet on older deployments.
+  // We fetch it separately and fall back gracefully if the column is absent.
   const { data: events, error } = await supabase
     .from('events')
-    .select('id, title, title_pt, date, location, location_pt, cover_photo_url, created_at')
+    .select('id, title, title_pt, date, location, location_pt, created_at')
     .order('date', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Try to fetch cover_photo_url — silently ignore if the column doesn't exist yet
+  let coverMap: Record<string, string | null> = {}
+  const { data: coverData } = await supabase
+    .from('events')
+    .select('id, cover_photo_url')
+  if (coverData) {
+    coverData.forEach((row: { id: string; cover_photo_url?: string | null }) => {
+      coverMap[row.id] = row.cover_photo_url ?? null
+    })
+  }
 
   // Get photo counts per event
   const eventIds = (events || []).map(e => e.id)
@@ -57,6 +70,7 @@ export async function GET() {
 
   const eventsWithCounts = (events || []).map(e => ({
     ...e,
+    cover_photo_url: coverMap[e.id] ?? null,
     photo_count: photoCounts[e.id] || 0,
   }))
 
@@ -87,7 +101,10 @@ export async function POST(request: NextRequest) {
   // If the client sends a plain date string (YYYY-MM-DD), append midnight UTC.
   const dateValue = date.includes('T') ? date : `${date}T00:00:00Z`
 
-  const { data, error } = await supabase
+  // Insert only the columns that are guaranteed to exist on all deployments.
+  // cover_photo_url is added via migration; we skip it here to avoid errors
+  // on databases that haven't run the migration yet.
+  const { data: inserted, error: insertError } = await supabase
     .from('events')
     .insert({
       title,
@@ -95,12 +112,24 @@ export async function POST(request: NextRequest) {
       location,
       is_active: false, // gallery-only events don't appear in the next-run feed
     })
-    .select('id, title, title_pt, date, location, location_pt, cover_photo_url, created_at')
+    .select('id, title, title_pt, date, location, location_pt, created_at')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
 
-  return NextResponse.json({ event: { ...data, photo_count: 0 } }, { status: 201 })
+  // Try to read cover_photo_url if the column exists
+  let cover_photo_url: string | null = null
+  const { data: coverRow } = await supabase
+    .from('events')
+    .select('cover_photo_url')
+    .eq('id', inserted.id)
+    .single()
+  if (coverRow) cover_photo_url = (coverRow as { cover_photo_url?: string | null }).cover_photo_url ?? null
+
+  return NextResponse.json(
+    { event: { ...inserted, cover_photo_url, photo_count: 0 } },
+    { status: 201 }
+  )
 }
 
 // DELETE: Delete a gallery event (admin only)

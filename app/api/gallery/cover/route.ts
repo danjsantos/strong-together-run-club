@@ -30,6 +30,7 @@ async function requireAdmin(supabase: ReturnType<typeof makeSupabase>) {
 }
 
 // PUT: Update the cover photo URL for an event (admin only)
+// Requires the cover_photo_url column to exist (run migration 001_gallery_feature.sql first).
 export async function PUT(request: NextRequest) {
   const supabase = makeSupabase()
   const user = await requireAdmin(supabase)
@@ -42,10 +43,19 @@ export async function PUT(request: NextRequest) {
     .from('events')
     .update({ cover_photo_url: cover_photo_url || null })
     .eq('id', event_id)
-    .select()
+    .select('id, cover_photo_url')
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // If the column doesn't exist yet, return a clear message instead of a 500
+    if (error.message.includes('cover_photo_url does not exist')) {
+      return NextResponse.json(
+        { error: 'Run migration 001_gallery_feature.sql in Supabase to enable cover photos.' },
+        { status: 422 }
+      )
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({ event: data })
 }
