@@ -20,15 +20,15 @@ export default async function HomePage() {
   // Step 2: remaining queries in parallel
   const [
     { count: memberCount },
-    { data: eventPhotos },
+    { data: rawPhotos, error: photosError },
     { count: totalRsvps },
     { count: nextEventRsvps },
   ] = await Promise.all([
     supabase.from('profiles').select('*', { count: 'exact', head: true }),
-    // Fetch latest photos from event_photos, joining the event title for the caption
+    // Simple query — no join, avoids foreign key resolution issues
     supabase
       .from('event_photos')
-      .select('id, photo_url, caption, event_id, events(title, title_pt)')
+      .select('id, photo_url, caption, event_id')
       .order('uploaded_at', { ascending: false })
       .limit(9),
     supabase.from('rsvps').select('*', { count: 'exact', head: true }),
@@ -40,16 +40,36 @@ export default async function HomePage() {
       : Promise.resolve({ count: 0, data: null, error: null }),
   ])
 
-  // Map event_photos shape → PhotoGallery's expected { id, url, alt, events } shape
-  // Supabase returns joined relations as arrays; we normalise to a single object.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const photos = ((eventPhotos || []) as any[]).map((p) => ({
-    id: p.id as string,
-    url: p.photo_url as string,
-    alt: (p.caption as string | null) ?? null,
-    events: Array.isArray(p.events)
-      ? (p.events[0] as { title: string; title_pt: string | null } | undefined) ?? null
-      : (p.events as { title: string; title_pt: string | null } | null) ?? null,
+  if (photosError) {
+    console.error('[HomePage] event_photos query error:', photosError.message)
+  }
+
+  // Fetch event titles for the photos (for hover captions)
+  const eventIds = Array.from(new Set((rawPhotos || []).map((p: { event_id: string }) => p.event_id)))
+  let eventTitleMap: Record<string, { title: string; title_pt: string | null }> = {}
+  if (eventIds.length > 0) {
+    const { data: eventsData } = await supabase
+      .from('events')
+      .select('id, title, title_pt')
+      .in('id', eventIds)
+    if (eventsData) {
+      eventsData.forEach((e: { id: string; title: string; title_pt: string | null }) => {
+        eventTitleMap[e.id] = { title: e.title, title_pt: e.title_pt }
+      })
+    }
+  }
+
+  // Map to PhotoGallery's expected shape
+  const photos = (rawPhotos || []).map((p: {
+    id: string
+    photo_url: string
+    caption: string | null
+    event_id: string
+  }) => ({
+    id: p.id,
+    url: p.photo_url,
+    alt: p.caption ?? null,
+    events: eventTitleMap[p.event_id] ?? null,
   }))
 
   return (
