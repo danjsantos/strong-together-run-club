@@ -14,7 +14,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
           {/* Brand */}
           <div className="flex flex-col gap-3">
-            <Logo className="h-10 w-auto" />
+            <Logo className="h-16 w-auto" />
             <p className="text-white/50 text-sm">{t.footer.tagline}</p>
             <p className="text-white/40 text-xs flex items-center gap-1">
               <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
@@ -29,6 +29,8 @@ export default function Footer() {
             <h3 className="text-white/40 text-xs font-semibold uppercase tracking-widest">Links</h3>
             <Link href="/" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.home}</Link>
             <Link href="/next-run" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.nextRun}</Link>
+            <Link href="/gallery" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.gallery}</Link>
+            <Link href="/leaderboard" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.leaderboard}</Link>
             <Link href="/login" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.login}</Link>
           </div>
 
