@@ -19,7 +19,7 @@ export default async function DashboardPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, name, display_name, avatar_url, bio, city, goals, badges, onboarding_complete, is_admin')
-    .eq('id', user.id)
+    .eq('id', user!.id)
     .single()
 
   // Redirect admins to /admin

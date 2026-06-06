@@ -38,6 +38,7 @@ In your Supabase project → **SQL Editor**, run in order:
 3. `supabase/migrations/002_running_profile_onboarding.sql` — onboarding columns + initial admin
 4. `supabase/migrations/003_badges_goals_city.sql` — badges, goals, and city columns (required for dashboard and profile pages)
 5. `supabase/migrations/004_fix_avatars_storage_policy.sql` — fixes the avatars Storage UPDATE policy so photo replacement works correctly
+6. `supabase/migrations/005_add_bio_to_profiles.sql` — adds the `bio` column to the profiles table (required for onboarding Step 2 and the profile page)
 
 ### 4. Enable Google OAuth in Supabase
 
