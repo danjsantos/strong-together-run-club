@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import EventGalleryCard from './EventGalleryCard'
 
@@ -90,13 +91,48 @@ export default function GalleryPageClient() {
 
   if (events.length === 0) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-4">
-        <div className="w-20 h-20 rounded-full bg-brand-wine/30 flex items-center justify-center">
-          <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16">
+        {/* Glowing pink orb background */}
+        <div className="relative flex flex-col items-center gap-6 w-full max-w-sm">
+          <div className="absolute inset-0 rounded-3xl bg-brand-pink/5 blur-3xl" aria-hidden="true" />
+
+          {/* Icon container */}
+          <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-brand-pink/20 to-brand-wine/30 border border-brand-pink/30 flex items-center justify-center shadow-lg shadow-brand-pink/10">
+            {/* Camera icon */}
+            <svg className="w-11 h-11 text-brand-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {/* Decorative ping dot */}
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-brand-pink animate-pulse-slow" />
+          </div>
+
+          {/* Text */}
+          <div className="relative text-center space-y-3">
+            <h3 className="text-xl font-bold text-white">
+              No photos yet
+            </h3>
+            <p className="text-white/60 text-sm leading-relaxed">
+              Be part of our next run and help us fill this gallery with amazing memories!
+            </p>
+          </div>
+
+          {/* Pink divider */}
+          <div className="relative w-16 h-0.5 bg-gradient-pink rounded-full" />
+
+          {/* Motivational message */}
+          <p className="relative text-brand-pink font-semibold text-base text-center">
+            No photos yet — be part of our next run!
+          </p>
+
+          {/* CTA button */}
+          <Link
+            href="/next-run"
+            className="relative bg-brand-pink text-white font-bold text-base px-8 py-4 rounded-full hover:bg-brand-pink/90 active:scale-95 transition-all duration-200 shadow-lg shadow-brand-pink/30 w-full text-center"
+          >
+            Join the Next Run →
+          </Link>
         </div>
-        <p className="text-white/40 text-center">{t.gallery.noPhotos}</p>
       </div>
     )
   }
