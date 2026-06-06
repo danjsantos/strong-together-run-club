@@ -33,6 +33,7 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const isAdminRoute = request.nextUrl.pathname.startsWith('/admin')
+  const isOnboardingRoute = request.nextUrl.pathname.startsWith('/onboarding')
 
   // If env vars are missing, fail safe: pass through public routes,
   // redirect admin routes to login so they're never accidentally exposed.
@@ -65,6 +66,14 @@ export async function middleware(request: NextRequest) {
     })
 
     const { data: { user } } = await supabase.auth.getUser()
+
+    // /onboarding requires authentication
+    if (isOnboardingRoute && !user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirectTo', request.nextUrl.pathname)
+      return NextResponse.redirect(url)
+    }
 
     if (isAdminRoute) {
       if (!user) {

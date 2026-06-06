@@ -29,13 +29,29 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data.user) {
-      // Upsert profile
+      // Upsert profile row (creates it if it doesn't exist yet)
       await supabase.from('profiles').upsert({
         id: data.user.id,
         email: data.user.email,
         name: data.user.user_metadata?.full_name || data.user.email,
         avatar_url: data.user.user_metadata?.avatar_url,
       }, { onConflict: 'id' })
+
+      // Check whether this user has already completed onboarding.
+      // If not, redirect them to /onboarding instead of the original `next`.
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('onboarding_complete')
+        .eq('id', data.user.id)
+        .single()
+
+      const onboardingDone = profileRow?.onboarding_complete === true
+
+      if (!onboardingDone) {
+        const onboardingUrl = new URL('/onboarding', requestUrl.origin)
+        onboardingUrl.searchParams.set('next', next)
+        return NextResponse.redirect(onboardingUrl)
+      }
     }
   }
 

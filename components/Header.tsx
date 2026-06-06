@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import Logo from './Logo'
 import LanguageToggle from './LanguageToggle'
@@ -27,6 +27,7 @@ async function fetchIsAdmin(userId: string): Promise<boolean> {
 export default function Header() {
   const { t } = useLanguage()
   const pathname = usePathname()
+  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
@@ -75,9 +76,14 @@ export default function Header() {
   }, [isMenuOpen])
 
   const handleLogout = async () => {
+    setIsMenuOpen(false)
     const supabase = createClient()
-    await supabase.auth.signOut()
-    window.location.href = '/'
+    // scope: 'global' invalidates all sessions (not just this browser tab)
+    await supabase.auth.signOut({ scope: 'global' })
+    // Replace history entry so the browser won't navigate back to /admin,
+    // then force a full reload so the middleware re-evaluates the cleared session.
+    router.replace('/')
+    setTimeout(() => window.location.reload(), 50)
   }
 
   const navLinks = [

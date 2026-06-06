@@ -18,7 +18,69 @@ function GoogleIcon() {
   )
 }
 
-// ─── Shared field component ───────────────────────────────────────────────────
+// ─── Eye icons ────────────────────────────────────────────────────────────────
+function EyeIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+    </svg>
+  )
+}
+
+// ─── Password field with eye toggle ──────────────────────────────────────────
+function PasswordField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  autoComplete,
+}: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  autoComplete?: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-white/60 text-xs font-semibold uppercase tracking-wider">
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          type={show ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          autoComplete={autoComplete}
+          required
+          className="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 pr-11 text-white placeholder-white/30 text-sm focus:outline-none focus:border-brand-pink transition-colors"
+        />
+        <button
+          type="button"
+          onClick={() => setShow((s) => !s)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/80 transition-colors"
+          tabIndex={-1}
+          aria-label={show ? 'Hide password' : 'Show password'}
+        >
+          {show ? <EyeOffIcon /> : <EyeIcon />}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Plain text field ─────────────────────────────────────────────────────────
 function Field({
   label,
   type,
@@ -53,7 +115,7 @@ function Field({
 }
 
 // ─── Main content ─────────────────────────────────────────────────────────────
-type Tab = 'signin' | 'signup'
+type Tab = 'signin' | 'signup' | 'forgot'
 
 function LoginContent() {
   const { t } = useLanguage()
@@ -78,6 +140,12 @@ function LoginContent() {
   const [suError, setSuError] = useState('')
   const [suSuccess, setSuSuccess] = useState(false)
 
+  // Forgot password state
+  const [fpEmail, setFpEmail] = useState('')
+  const [fpLoading, setFpLoading] = useState(false)
+  const [fpError, setFpError] = useState('')
+  const [fpSuccess, setFpSuccess] = useState(false)
+
   // Redirect if already logged in
   useEffect(() => {
     const supabase = createClient()
@@ -85,6 +153,11 @@ function LoginContent() {
       if (user) router.push(redirectTo)
     })
   }, [router, redirectTo])
+
+  const resetAll = () => {
+    setSiError(''); setSuError(''); setFpError('')
+    setSuSuccess(false); setFpSuccess(false)
+  }
 
   // ── Google OAuth ────────────────────────────────────────────────────────────
   const handleGoogleLogin = async () => {
@@ -146,7 +219,6 @@ function LoginContent() {
       return
     }
 
-    // Upsert profile row immediately (even before email confirmation)
     if (data.user) {
       await supabase.from('profiles').upsert({
         id: data.user.id,
@@ -158,6 +230,23 @@ function LoginContent() {
 
     setSuLoading(false)
     setSuSuccess(true)
+  }
+
+  // ── Forgot password ─────────────────────────────────────────────────────────
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFpLoading(true)
+    setFpError('')
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(fpEmail.trim(), {
+      redirectTo: `${window.location.origin}/api/auth/callback?next=/profile`,
+    })
+    if (error) {
+      setFpError(error.message)
+    } else {
+      setFpSuccess(true)
+    }
+    setFpLoading(false)
   }
 
   // ── Divider ─────────────────────────────────────────────────────────────────
@@ -183,31 +272,33 @@ function LoginContent() {
             <Logo className="h-12 w-auto" />
           </div>
 
-          {/* Tab switcher */}
-          <div className="flex bg-white/5 rounded-2xl p-1 mb-6 gap-1">
-            <button
-              type="button"
-              onClick={() => { setTab('signin'); setSiError(''); setSuError(''); setSuSuccess(false) }}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                tab === 'signin'
-                  ? 'bg-brand-pink text-white shadow'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              {t.login.signInEmail}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setTab('signup'); setSiError(''); setSuError(''); setSuSuccess(false) }}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                tab === 'signup'
-                  ? 'bg-brand-pink text-white shadow'
-                  : 'text-white/50 hover:text-white'
-              }`}
-            >
-              {t.login.signUp}
-            </button>
-          </div>
+          {/* Tab switcher — hidden on forgot-password view */}
+          {tab !== 'forgot' && (
+            <div className="flex bg-white/5 rounded-2xl p-1 mb-6 gap-1">
+              <button
+                type="button"
+                onClick={() => { setTab('signin'); resetAll() }}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                  tab === 'signin'
+                    ? 'bg-brand-pink text-white shadow'
+                    : 'text-white/50 hover:text-white'
+                }`}
+              >
+                {t.login.signInEmail}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setTab('signup'); resetAll() }}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                  tab === 'signup'
+                    ? 'bg-brand-pink text-white shadow'
+                    : 'text-white/50 hover:text-white'
+                }`}
+              >
+                {t.login.signUp}
+              </button>
+            </div>
+          )}
 
           {/* ── SIGN IN TAB ── */}
           {tab === 'signin' && (
@@ -229,7 +320,6 @@ function LoginContent() {
 
               <Divider label={t.login.orEmail} />
 
-              {/* Email / password form */}
               <form onSubmit={handleEmailSignIn} className="flex flex-col gap-3">
                 <Field
                   label={t.login.emailLabel}
@@ -239,14 +329,23 @@ function LoginContent() {
                   placeholder={t.login.emailPlaceholder}
                   autoComplete="email"
                 />
-                <Field
+                <PasswordField
                   label={t.login.passwordLabel}
-                  type="password"
                   value={siPassword}
                   onChange={setSiPassword}
                   placeholder={t.login.passwordPlaceholder}
                   autoComplete="current-password"
                 />
+                {/* Forgot password link */}
+                <div className="flex justify-end -mt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setTab('forgot'); resetAll(); setFpEmail(siEmail) }}
+                    className="text-brand-pink text-xs hover:underline"
+                  >
+                    {t.login.forgotPassword}
+                  </button>
+                </div>
                 {siError && (
                   <p className="text-red-400 text-xs text-center">{siError}</p>
                 )}
@@ -290,7 +389,6 @@ function LoginContent() {
                 </div>
               ) : (
                 <>
-                  {/* Google sign-up */}
                   <button
                     type="button"
                     onClick={handleGoogleLogin}
@@ -319,17 +417,15 @@ function LoginContent() {
                       placeholder={t.login.emailPlaceholder}
                       autoComplete="email"
                     />
-                    <Field
+                    <PasswordField
                       label={t.login.passwordLabel}
-                      type="password"
                       value={suPassword}
                       onChange={setSuPassword}
                       placeholder={t.login.passwordPlaceholder}
                       autoComplete="new-password"
                     />
-                    <Field
+                    <PasswordField
                       label={t.login.confirmPasswordLabel}
-                      type="password"
                       value={suConfirm}
                       onChange={setSuConfirm}
                       placeholder={t.login.confirmPasswordPlaceholder}
@@ -349,6 +445,62 @@ function LoginContent() {
 
                   <p className="text-center text-white/30 text-xs mt-4">{t.login.terms}</p>
                 </>
+              )}
+            </>
+          )}
+
+          {/* ── FORGOT PASSWORD TAB ── */}
+          {tab === 'forgot' && (
+            <>
+              <div className="text-center mb-6">
+                <h1 className="text-xl font-black text-white mb-1">{t.login.forgotPasswordTitle}</h1>
+                <p className="text-white/50 text-xs">{t.login.forgotPasswordSubtitle}</p>
+              </div>
+
+              {fpSuccess ? (
+                <div className="bg-brand-pink/10 border border-brand-pink/30 rounded-2xl p-5 text-center">
+                  <div className="w-12 h-12 rounded-full bg-brand-pink/20 flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-brand-pink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-white font-semibold text-sm">{t.login.resetEmailSent}</p>
+                  <button
+                    type="button"
+                    onClick={() => { setTab('signin'); setFpSuccess(false) }}
+                    className="mt-4 text-brand-pink text-sm font-semibold hover:underline"
+                  >
+                    {t.login.backToSignIn}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleForgotPassword} className="flex flex-col gap-3">
+                  <Field
+                    label={t.login.emailLabel}
+                    type="email"
+                    value={fpEmail}
+                    onChange={setFpEmail}
+                    placeholder={t.login.emailPlaceholder}
+                    autoComplete="email"
+                  />
+                  {fpError && (
+                    <p className="text-red-400 text-xs text-center">{fpError}</p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={fpLoading}
+                    className="w-full bg-brand-pink text-white font-bold py-3 rounded-full hover:bg-brand-pink/90 transition-colors disabled:opacity-50 mt-1"
+                  >
+                    {fpLoading ? '...' : t.login.sendResetLink}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTab('signin'); resetAll() }}
+                    className="text-white/40 text-xs text-center hover:text-white/70 transition-colors"
+                  >
+                    ← {t.login.backToSignIn}
+                  </button>
+                </form>
               )}
             </>
           )}
