@@ -176,7 +176,7 @@ function LoginContent() {
     setSiLoading(true)
     setSiError('')
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
       email: siEmail.trim(),
       password: siPassword,
     })
@@ -184,6 +184,19 @@ function LoginContent() {
       setSiError(error.message)
       setSiLoading(false)
     } else {
+      // Check if the user has completed onboarding; if not, send them there first
+      const userId = signInData.user?.id
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_complete')
+          .eq('id', userId)
+          .single()
+        if (!profile?.onboarding_complete) {
+          router.push(`/onboarding?next=${encodeURIComponent(redirectTo)}`)
+          return
+        }
+      }
       router.push(redirectTo)
     }
   }
