@@ -2,58 +2,66 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import Logo from './Logo'
 import LanguageToggle from './LanguageToggle'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
-async function fetchIsAdmin(userId: string): Promise<boolean> {
-  try {
-    const supabase = createClient()
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('is_admin')
-      .eq('id', userId)
-      .single()
-    if (error || !data) return false
-    return data.is_admin === true
-  } catch {
-    return false
-  }
-}
-
 export default function Header() {
   const { t } = useLanguage()
   const pathname = usePathname()
-  const router = useRouter()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  // Track whether we have resolved the initial auth state.
+  // This prevents the navbar from flashing "logged in" then "logged out"
+  // (or vice-versa) during the first render cycle.
+  const [authReady, setAuthReady] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      setUser(user)
-      if (user) {
-        const admin = await fetchIsAdmin(user.id)
-        setIsAdmin(admin)
-      } else {
+
+    /**
+     * Load the current user AND their admin flag in a single async block so
+     * both pieces of state are set together, avoiding a render where `user`
+     * is set but `isAdmin` is still false (which caused the Admin link to
+     * never appear).
+     */
+    const loadUserAndAdmin = async (currentUser: User | null) => {
+      if (!currentUser) {
+        setUser(null)
         setIsAdmin(false)
+        return
       }
-    })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null
+
+      // Profiles are publicly readable (RLS: "Public profiles are viewable by
+      // everyone"), so the anon key is sufficient here.
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', currentUser.id)
+        .single()
+
+      // Set both values atomically so a single re-render picks them both up.
       setUser(currentUser)
-      if (currentUser) {
-        const admin = await fetchIsAdmin(currentUser.id)
-        setIsAdmin(admin)
-      } else {
-        setIsAdmin(false)
-      }
+      setIsAdmin(!error && data?.is_admin === true)
+    }
+
+    // Resolve the initial session from the cookie / local storage.
+    supabase.auth.getUser().then(({ data: { user: initialUser } }) => {
+      loadUserAndAdmin(initialUser).finally(() => setAuthReady(true))
     })
+
+    // Keep state in sync with auth events (sign-in, sign-out, token refresh).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        loadUserAndAdmin(session?.user ?? null)
+      }
+    )
+
     return () => subscription.unsubscribe()
   }, [])
 
@@ -78,6 +86,9 @@ export default function Header() {
   const handleLogout = async () => {
     setIsMenuOpen(false)
     const supabase = createClient()
+    // Clear local state immediately so the navbar updates before the redirect.
+    setUser(null)
+    setIsAdmin(false)
     await supabase.auth.signOut()
     // Hard navigate to home — forces a full page reload so the server
     // re-evaluates the cleared session cookie (fixes admin redirect loop).
@@ -130,42 +141,49 @@ export default function Header() {
             {/* Desktop right */}
             <div className="hidden md:flex items-center gap-3">
               <LanguageToggle />
-              {user ? (
-                <div className="flex items-center gap-3">
+              {/*
+               * Only render the auth-dependent UI after the initial session
+               * check has resolved.  This prevents a flash of the "Login"
+               * button for authenticated users (and vice-versa) on first load.
+               */}
+              {authReady && (
+                user ? (
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href="/profile"
+                      className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                      title={t.nav.profile}
+                    >
+                      {user.user_metadata?.avatar_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={user.user_metadata.avatar_url as string}
+                          alt="avatar"
+                          className="w-8 h-8 rounded-full border-2 border-brand-pink"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-brand-pink/20 border-2 border-brand-pink flex items-center justify-center">
+                          <span className="text-brand-pink text-xs font-bold">
+                            {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="text-sm text-white/60 hover:text-white transition-colors"
+                    >
+                      {t.nav.logout}
+                    </button>
+                  </div>
+                ) : (
                   <Link
-                    href="/profile"
-                    className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                    title={t.nav.profile}
+                    href="/login"
+                    className="bg-brand-pink text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-brand-pink/90 transition-colors"
                   >
-                    {user.user_metadata?.avatar_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={user.user_metadata.avatar_url as string}
-                        alt="avatar"
-                        className="w-8 h-8 rounded-full border-2 border-brand-pink"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-brand-pink/20 border-2 border-brand-pink flex items-center justify-center">
-                        <span className="text-brand-pink text-xs font-bold">
-                          {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                    {t.nav.login}
                   </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="text-sm text-white/60 hover:text-white transition-colors"
-                  >
-                    {t.nav.logout}
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  href="/login"
-                  className="bg-brand-pink text-white text-sm font-semibold px-5 py-2 rounded-full hover:bg-brand-pink/90 transition-colors"
-                >
-                  {t.nav.login}
-                </Link>
+                )
               )}
             </div>
 
@@ -224,34 +242,36 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
-            {user ? (
-              <>
-                <Link
-                  href="/profile"
-                  onClick={() => setIsMenuOpen(false)}
-                  className={`text-2xl font-semibold py-3 border-b border-white/10 transition-colors ${
-                    pathname === '/profile' ? 'text-brand-pink' : 'text-white/80 hover:text-white'
-                  }`}
-                >
-                  {t.nav.profile}
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="text-2xl font-semibold py-3 text-white/50 hover:text-white/80 text-left transition-colors"
-                >
-                  {t.nav.logout}
-                </button>
-              </>
-            ) : (
-              <div className="pt-6">
-                <Link
-                  href="/login"
-                  onClick={() => setIsMenuOpen(false)}
-                  className="block bg-brand-pink text-white text-lg font-bold px-8 py-4 rounded-full text-center hover:bg-brand-pink/90 transition-colors"
-                >
-                  {t.nav.login}
-                </Link>
-              </div>
+            {authReady && (
+              user ? (
+                <>
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`text-2xl font-semibold py-3 border-b border-white/10 transition-colors ${
+                      pathname === '/profile' ? 'text-brand-pink' : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    {t.nav.profile}
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="text-2xl font-semibold py-3 text-white/50 hover:text-white/80 text-left transition-colors"
+                  >
+                    {t.nav.logout}
+                  </button>
+                </>
+              ) : (
+                <div className="pt-6">
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block bg-brand-pink text-white text-lg font-bold px-8 py-4 rounded-full text-center hover:bg-brand-pink/90 transition-colors"
+                  >
+                    {t.nav.login}
+                  </Link>
+                </div>
+              )
             )}
           </nav>
 
