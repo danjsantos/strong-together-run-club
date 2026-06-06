@@ -22,10 +22,6 @@ interface GalleryEvent {
   photo_count: number
 }
 
-interface EventWithPhotos extends GalleryEvent {
-  photos: Photo[]
-}
-
 export default function GalleryPageClient() {
   const { t } = useLanguage()
   const [events, setEvents] = useState<GalleryEvent[]>([])

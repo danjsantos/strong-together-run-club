@@ -28,7 +28,14 @@ export default function RSVPForm({ eventId, onRSVPChange }: RSVPFormProps) {
       setUser(user)
 
       if (user) {
-        setName(user.user_metadata?.full_name || user.email || '')
+        // Bug Extra 1 fix: prefer the display_name from the profiles table over
+        // auth metadata, so the RSVP name reflects what the user set during onboarding.
+        const { data: profileRow } = await supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', user.id)
+          .single()
+        setName(profileRow?.display_name || user.user_metadata?.full_name || user.email || '')
         const { data: existing } = await supabase
           .from('rsvps')
           .select('id')

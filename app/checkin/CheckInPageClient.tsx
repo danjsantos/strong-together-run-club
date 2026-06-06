@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Status = 'idle' | 'scanning' | 'loading' | 'success' | 'error' | 'already'
 
 export default function CheckInPageClient() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const tokenFromUrl = searchParams.get('token')
 
   const [status, setStatus] = useState<Status>('idle')

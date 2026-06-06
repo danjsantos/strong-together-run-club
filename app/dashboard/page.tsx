@@ -27,8 +27,11 @@ export default async function DashboardPage() {
     redirect('/admin')
   }
 
-  // Redirect to onboarding if not complete
-  if (profile && !profile.onboarding_complete) {
+  // Redirect to onboarding if profile row is missing or onboarding is not complete.
+  // Bug 4a fix: a null profile means the profiles row was never created (e.g. the
+  // handle_new_user trigger did not fire). Treat it the same as onboarding_complete=false
+  // so the user is sent to onboarding instead of landing on a broken dashboard.
+  if (!profile || !profile.onboarding_complete) {
     redirect('/onboarding')
   }
 

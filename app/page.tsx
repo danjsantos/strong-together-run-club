@@ -46,7 +46,7 @@ export default async function HomePage() {
 
   // Fetch event titles for the photos (for hover captions)
   const eventIds = Array.from(new Set((rawPhotos || []).map((p: { event_id: string }) => p.event_id)))
-  let eventTitleMap: Record<string, { title: string; title_pt: string | null }> = {}
+  const eventTitleMap: Record<string, { title: string; title_pt: string | null }> = {}
   if (eventIds.length > 0) {
     const { data: eventsData } = await supabase
       .from('events')

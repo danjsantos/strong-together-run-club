@@ -187,9 +187,15 @@ create policy "Authenticated users can upload avatars"
   on storage.objects for insert
   with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
 
+-- Bug 1 fix: use path prefix check instead of `owner` column, which can be NULL
+-- on re-uploads. Avatar files are stored under `{user_id}/avatar.*`.
 create policy "Authenticated users can update own avatars"
   on storage.objects for update
-  using (bucket_id = 'avatars' and auth.uid() = owner);
+  using (
+    bucket_id = 'avatars'
+    and auth.role() = 'authenticated'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 create policy "Authenticated users can delete own avatars"
   on storage.objects for delete

@@ -16,6 +16,8 @@ export default function Header() {
   const [user, setUser] = useState<User | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null)
+  const [profileDisplayName, setProfileDisplayName] = useState<string | null>(null)
   // Track whether we have resolved the initial auth state.
   // This prevents the navbar from flashing "logged in" then "logged out"
   // (or vice-versa) during the first render cycle.
@@ -34,20 +36,27 @@ export default function Header() {
       if (!currentUser) {
         setUser(null)
         setIsAdmin(false)
+        setProfileAvatar(null)
+        setProfileDisplayName(null)
         return
       }
 
       // Profiles are publicly readable (RLS: "Public profiles are viewable by
       // everyone"), so the anon key is sufficient here.
+      // Bug Extra 1 fix: also fetch display_name and avatar_url from the profiles
+      // table so the header always reflects the data saved during onboarding/profile
+      // edit, not the stale auth metadata that never updates after sign-up.
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_admin')
+        .select('is_admin, display_name, avatar_url')
         .eq('id', currentUser.id)
         .single()
 
-      // Set both values atomically so a single re-render picks them both up.
+      // Set all values atomically so a single re-render picks them all up.
       setUser(currentUser)
       setIsAdmin(!error && data?.is_admin === true)
+      setProfileAvatar(data?.avatar_url ?? null)
+      setProfileDisplayName(data?.display_name ?? null)
     }
 
     // Resolve the initial session from the cookie / local storage.
@@ -155,17 +164,17 @@ export default function Header() {
                       className="flex items-center gap-2 hover:opacity-80 transition-opacity"
                       title={t.nav.profile}
                     >
-                      {user.user_metadata?.avatar_url ? (
+                      {(profileAvatar || user.user_metadata?.avatar_url) ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={user.user_metadata.avatar_url as string}
+                          src={(profileAvatar || user.user_metadata?.avatar_url) as string}
                           alt="avatar"
                           className="w-8 h-8 rounded-full border-2 border-brand-pink"
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-brand-pink/20 border-2 border-brand-pink flex items-center justify-center">
                           <span className="text-brand-pink text-xs font-bold">
-                            {(user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
+                            {(profileDisplayName || user.user_metadata?.full_name || user.email || '?').charAt(0).toUpperCase()}
                           </span>
                         </div>
                       )}

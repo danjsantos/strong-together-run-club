@@ -133,6 +133,8 @@ export default function OnboardingPage() {
     if (!file) return
     const url = URL.createObjectURL(file)
     setProfile((p) => ({ ...p, avatarFile: file, avatarUrl: url }))
+    // Reset the input value so the same file can be re-selected (Bug 3 fix)
+    e.target.value = ''
   }
 
   // ── Final save ──────────────────────────────────────────────────────────────
@@ -141,7 +143,11 @@ export default function OnboardingPage() {
     setSaving(true)
     const supabase = createClient()
 
-    let finalAvatarUrl = profile.avatarUrl
+    // Bug 4b fix: never persist a blob: URL — those are temporary in-browser object
+    // URLs created by URL.createObjectURL() and are meaningless outside this tab.
+    // Only keep the avatar URL if it is a real remote HTTPS URL.
+    let finalAvatarUrl: string | null =
+      profile.avatarUrl && !profile.avatarUrl.startsWith('blob:') ? profile.avatarUrl : null
 
     // Upload avatar if a new file was chosen
     if (profile.avatarFile) {
@@ -150,19 +156,23 @@ export default function OnboardingPage() {
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, profile.avatarFile, { upsert: true })
-      if (!uploadError) {
+      if (uploadError) {
+        // Log the upload error but do not block the rest of the save chain.
+        console.error('[onboarding] avatar upload failed:', uploadError.message)
+      } else {
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
         finalAvatarUrl = urlData.publicUrl
       }
     }
 
-    // Save ALL collected data including city, goals (jsonb), and mark onboarding complete
-    await supabase.from('profiles').upsert({
+    // Save ALL collected data including city, goals (jsonb), and mark onboarding complete.
+    // Bug 4b fix: capture and log any upsert error so it is never silently swallowed.
+    const { error: upsertError } = await supabase.from('profiles').upsert({
       id: userId,
       display_name: profile.displayName || null,
       name: profile.displayName || null,
       bio: profile.bio || null,
-      avatar_url: finalAvatarUrl || null,
+      avatar_url: finalAvatarUrl,
       city: profile.city || null,
       goals: profile.goals.length > 0 ? profile.goals : null,
       experience_level: profile.experienceLevel || null,
@@ -174,16 +184,28 @@ export default function OnboardingPage() {
       onboarding_complete: true,
     }, { onConflict: 'id' })
 
+    if (upsertError) {
+      console.error('[onboarding] profile upsert failed:', upsertError.message)
+    }
+
     setSaving(false)
     router.push('/dashboard')
   }
 
   // ── Skip (marks onboarding complete so it won't show again) ─────────────────
   const handleSkip = async () => {
-    if (!userId) { router.push('/dashboard'); return }
+    // Bug 2 fix: if userId is not yet loaded (race condition), fetch it directly
+    // instead of redirecting without saving — which would leave onboarding_complete=false.
+    let uid = userId
+    if (!uid) {
+      const supabaseTemp = createClient()
+      const { data: { user } } = await supabaseTemp.auth.getUser()
+      uid = user?.id ?? null
+    }
+    if (!uid) { router.push('/dashboard'); return }
     const supabase = createClient()
     await supabase.from('profiles').upsert(
-      { id: userId, onboarding_complete: true },
+      { id: uid, onboarding_complete: true },
       { onConflict: 'id' }
     )
     router.push('/dashboard')

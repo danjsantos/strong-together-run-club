@@ -55,7 +55,14 @@ export default function NextRunClient({ event, initialRsvpCount }: NextRunClient
   const handleStickyRsvp = async () => {
     if (!event || !user || hasRsvp) return
     setRsvping(true)
-    const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Runner'
+    // Bug Extra 1 fix: read display_name from profiles table rather than stale auth metadata.
+    const supabase = createClient()
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', user.id)
+      .single()
+    const displayName = profileRow?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || user.email || 'Runner'
     try {
       const res = await fetch('/api/rsvp', {
         method: 'POST',

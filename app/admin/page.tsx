@@ -20,8 +20,8 @@ export default async function AdminPage() {
   ])
 
   const eventIds = (events || []).map(e => e.id)
-  let rsvpCounts: Record<string, number> = {}
-  let checkinCounts: Record<string, number> = {}
+  const rsvpCounts: Record<string, number> = {}
+  const checkinCounts: Record<string, number> = {}
 
   if (eventIds.length > 0) {
     const [{ data: rsvpData }, { data: checkinData }] = await Promise.all([
