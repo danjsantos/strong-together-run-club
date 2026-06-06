@@ -143,23 +143,46 @@ export default function OnboardingPage() {
       }
     }
 
+    // Step 1: Always save the core columns that are guaranteed to exist.
+    // This ensures onboarding_complete is persisted even if the migration
+    // adding the extra columns hasn't been run yet.
     await supabase.from('profiles').upsert({
       id: userId,
       display_name: profile.displayName || null,
       name: profile.displayName || null,
       bio: profile.bio || null,
-      city: profile.city || null,
-      experience_level: profile.experienceLevel || null,
-      weekly_mileage: profile.weeklyMileage || null,
-      avg_pace: profile.avgPace || null,
-      preferred_distance: profile.preferredDistance || null,
-      shoe_brand: profile.shoeBrand || null,
-      running_goals: profile.goals.length > 0 ? profile.goals : null,
       avatar_url: finalAvatarUrl || null,
       onboarding_complete: true,
     }, { onConflict: 'id' })
 
+    // Step 2: Try to save the extended running-profile columns (added by migration 002).
+    // If the columns don't exist yet this will fail silently — that's fine.
+    if (profile.city || profile.experienceLevel || profile.weeklyMileage ||
+        profile.avgPace || profile.preferredDistance || profile.shoeBrand ||
+        profile.goals.length > 0) {
+      await supabase.from('profiles').update({
+        city: profile.city || null,
+        experience_level: profile.experienceLevel || null,
+        weekly_mileage: profile.weeklyMileage || null,
+        avg_pace: profile.avgPace || null,
+        preferred_distance: profile.preferredDistance || null,
+        shoe_brand: profile.shoeBrand || null,
+        running_goals: profile.goals.length > 0 ? profile.goals : null,
+      }).eq('id', userId)
+    }
+
     setSaving(false)
+    router.push('/')
+  }
+
+  // ── Skip (marks onboarding complete so it won't show again) ─────────────────
+  const handleSkip = async () => {
+    if (!userId) { router.push('/'); return }
+    const supabase = createClient()
+    await supabase.from('profiles').upsert(
+      { id: userId, onboarding_complete: true },
+      { onConflict: 'id' }
+    )
     router.push('/')
   }
 
@@ -502,7 +525,7 @@ export default function OnboardingPage() {
             <div className="text-center mt-4">
               <button
                 type="button"
-                onClick={() => router.push('/')}
+                onClick={handleSkip}
                 className="text-white/30 text-xs hover:text-white/60 transition-colors"
               >
                 Skip for now
