@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import { createClient } from '@/lib/supabase/client'
 import { formatShortDate } from '@/lib/utils'
@@ -11,6 +11,7 @@ interface Photo {
   photo_url: string
   caption: string | null
   uploaded_at: string
+  sort_order: number
 }
 
 interface GalleryEvent {
@@ -44,7 +45,13 @@ export default function AdminGalleryClient() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [uploadSuccess, setUploadSuccess] = useState(false)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const [orderSaved, setOrderSaved] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Drag-and-drop state
+  const dragIndexRef = useRef<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   const loadEvents = async () => {
     setLoading(true)
@@ -225,6 +232,64 @@ export default function AdminGalleryClient() {
       // ignore
     }
   }
+
+  // ── Drag-and-drop handlers ──────────────────────────────────────────────────
+
+  const handleDragStart = useCallback((index: number) => {
+    dragIndexRef.current = index
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    setDragOverIndex(null)
+    dragIndexRef.current = null
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault()
+    const dragIndex = dragIndexRef.current
+    if (dragIndex === null || dragIndex === dropIndex) {
+      setDragOverIndex(null)
+      dragIndexRef.current = null
+      return
+    }
+
+    setPhotos(prev => {
+      const next = [...prev]
+      const [moved] = next.splice(dragIndex, 1)
+      next.splice(dropIndex, 0, moved)
+      return next
+    })
+
+    setDragOverIndex(null)
+    dragIndexRef.current = null
+  }, [])
+
+  const handleSaveOrder = async () => {
+    if (!selectedEvent || photos.length === 0) return
+    setSavingOrder(true)
+    setOrderSaved(false)
+    try {
+      const res = await fetch('/api/gallery/photos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds: photos.map(p => p.id) }),
+      })
+      if (!res.ok) throw new Error('Failed to save order')
+      setOrderSaved(true)
+      setTimeout(() => setOrderSaved(false), 3000)
+    } catch {
+      // ignore
+    } finally {
+      setSavingOrder(false)
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-8">
@@ -446,8 +511,13 @@ export default function AdminGalleryClient() {
                   {t.gallery.uploadSuccess}
                 </div>
               )}
+              {orderSaved && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 text-green-400 text-sm">
+                  Photo order saved successfully.
+                </div>
+              )}
 
-              {/* Drag & drop zone */}
+              {/* Drag & drop upload zone */}
               <div
                 className="border-2 border-dashed border-brand-wine/40 rounded-xl p-6 text-center cursor-pointer hover:border-brand-pink/40 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
@@ -473,45 +543,88 @@ export default function AdminGalleryClient() {
                 <p className="text-white/40 text-sm">{t.gallery.dragDrop}</p>
               </div>
 
-              {/* Photos grid */}
+              {/* Photos grid with drag-to-reorder */}
               {photos.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                  {photos.map(photo => (
-                    <div
-                      key={photo.id}
-                      className="relative group aspect-square rounded-lg overflow-hidden bg-brand-wine/20"
+                <>
+                  <div className="flex items-center justify-between">
+                    <p className="text-white/40 text-xs">
+                      Drag photos to reorder, then save.
+                    </p>
+                    <button
+                      onClick={handleSaveOrder}
+                      disabled={savingOrder}
+                      className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 flex items-center gap-1.5"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={photo.photo_url}
-                        alt={photo.caption || ''}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                      {/* Cover indicator */}
-                      {selectedEvent.cover_photo_url === photo.photo_url && (
-                        <div className="absolute top-1 left-1 bg-brand-pink text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
-                          Cover
-                        </div>
+                      {savingOrder ? (
+                        <>
+                          <div className="w-3 h-3 border border-white/50 border-t-transparent rounded-full animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Save Order
+                        </>
                       )}
-                      {/* Action overlay */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
-                        <button
-                          onClick={() => handleSetCover(photo.photo_url)}
-                          className="text-white/80 hover:text-white text-[11px] font-medium bg-white/10 hover:bg-white/20 rounded px-2 py-1 transition-colors w-full text-center"
-                        >
-                          {t.gallery.setCover}
-                        </button>
-                        <button
-                          onClick={() => handleDeletePhoto(photo)}
-                          className="text-red-400 hover:text-red-300 text-[11px] font-medium bg-red-500/10 hover:bg-red-500/20 rounded px-2 py-1 transition-colors w-full text-center"
-                        >
-                          {t.common.delete}
-                        </button>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {photos.map((photo, index) => (
+                      <div
+                        key={photo.id}
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={e => handleDragOver(e, index)}
+                        onDrop={e => handleDrop(e, index)}
+                        onDragEnd={handleDragEnd}
+                        className={`relative group aspect-square rounded-lg overflow-hidden bg-brand-wine/20 cursor-grab active:cursor-grabbing transition-all duration-150 ${
+                          dragOverIndex === index ? 'ring-2 ring-brand-pink scale-105' : ''
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photo.photo_url}
+                          alt={photo.caption || ''}
+                          className="w-full h-full object-cover pointer-events-none"
+                          loading="lazy"
+                          draggable={false}
+                        />
+                        {/* Drag handle indicator */}
+                        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="bg-black/60 rounded p-0.5">
+                            <svg className="w-3 h-3 text-white/80" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M8 6a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm8-16a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4zm0 8a2 2 0 100-4 2 2 0 000 4z" />
+                            </svg>
+                          </div>
+                        </div>
+                        {/* Cover indicator */}
+                        {selectedEvent.cover_photo_url === photo.photo_url && (
+                          <div className="absolute top-1 left-1 bg-brand-pink text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                            Cover
+                          </div>
+                        )}
+                        {/* Action overlay */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                          <button
+                            onClick={() => handleSetCover(photo.photo_url)}
+                            className="text-white/80 hover:text-white text-[11px] font-medium bg-white/10 hover:bg-white/20 rounded px-2 py-1 transition-colors w-full text-center"
+                          >
+                            {t.gallery.setCover}
+                          </button>
+                          <button
+                            onClick={() => handleDeletePhoto(photo)}
+                            className="text-red-400 hover:text-red-300 text-[11px] font-medium bg-red-500/10 hover:bg-red-500/20 rounded px-2 py-1 transition-colors w-full text-center"
+                          >
+                            {t.common.delete}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <p className="text-white/30 text-sm text-center py-8">{t.gallery.noPhotosYet}</p>
               )}

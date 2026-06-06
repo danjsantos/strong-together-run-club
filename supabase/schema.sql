@@ -139,7 +139,8 @@ create table if not exists public.event_photos (
   event_id    uuid references public.events(id) on delete cascade,
   photo_url   text not null,
   caption     text,
-  uploaded_at timestamp default now()
+  uploaded_at timestamp default now(),
+  sort_order  integer default 0
 );
 
 alter table public.event_photos enable row level security;
@@ -152,6 +153,9 @@ create policy "Authenticated users cannot insert event photos directly"
 
 create policy "Authenticated users cannot delete event photos directly"
   on public.event_photos for delete using (false);
+
+create policy "Authenticated users cannot update event photos directly"
+  on public.event_photos for update using (false);
 
 -- --------------------------------------------------------
 -- Storage bucket for photos (legacy)

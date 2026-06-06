@@ -31,11 +31,25 @@ export async function GET(request: NextRequest) {
 
   if (!eventId) return NextResponse.json({ error: 'Missing eventId' }, { status: 400 })
 
-  const { data, error } = await supabase
+  // Try fetching with sort_order first; fall back to uploaded_at if the column doesn't exist yet
+  let { data, error } = await supabase
     .from('event_photos')
-    .select('id, event_id, photo_url, caption, uploaded_at')
+    .select('id, event_id, photo_url, caption, uploaded_at, sort_order')
     .eq('event_id', eventId)
+    .order('sort_order', { ascending: true })
     .order('uploaded_at', { ascending: true })
+
+  if (error && error.code === '42703') {
+    // sort_order column not yet migrated — fall back to uploaded_at ordering
+    const fallback = await supabase
+      .from('event_photos')
+      .select('id, event_id, photo_url, caption, uploaded_at')
+      .eq('event_id', eventId)
+      .order('uploaded_at', { ascending: true })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data = (fallback.data as any) ?? null
+    error = fallback.error
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -56,15 +70,59 @@ export async function POST(request: NextRequest) {
 
   // Use service_role to bypass the "insert with check (false)" RLS policy
   const adminDb = createAdminClient()
+
+  // Determine the next sort_order value for this event
+  const { data: existing } = await adminDb
+    .from('event_photos')
+    .select('sort_order')
+    .eq('event_id', event_id)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+
+  const nextSortOrder = existing && existing.length > 0
+    ? (existing[0].sort_order ?? 0) + 1
+    : 0
+
   const { data, error } = await adminDb
     .from('event_photos')
-    .insert({ event_id, photo_url, caption: caption || null })
+    .insert({ event_id, photo_url, caption: caption || null, sort_order: nextSortOrder })
     .select()
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ photo: data }, { status: 201 })
+}
+
+// PATCH: Reorder photos for an event (admin only)
+export async function PATCH(request: NextRequest) {
+  const user = await requireAdmin()
+  if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const body = await request.json()
+  const { orderedIds } = body as { orderedIds: string[] }
+
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return NextResponse.json({ error: 'Missing or invalid orderedIds' }, { status: 400 })
+  }
+
+  const adminDb = createAdminClient()
+
+  // Update each photo's sort_order based on its position in the array
+  const updates = orderedIds.map((id, index) =>
+    adminDb
+      .from('event_photos')
+      .update({ sort_order: index })
+      .eq('id', id)
+  )
+
+  const results = await Promise.all(updates)
+  const failed = results.find(r => r.error)
+  if (failed?.error) {
+    return NextResponse.json({ error: failed.error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true })
 }
 
 // DELETE: Delete a photo record and its storage object (admin only)
