@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import DashboardClient from './DashboardClient'
 
+export const dynamic = 'force-dynamic'
 export const metadata = { title: 'My Dashboard' }
 
 export default async function DashboardPage() {

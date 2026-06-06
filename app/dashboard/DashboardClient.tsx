@@ -152,7 +152,7 @@ export default function DashboardClient({
         <div className="flex-shrink-0">
           {profile?.avatar_url ? (
             <Image
-              src={profile.avatar_url}
+              src={profile.avatar_url.includes('?') ? profile.avatar_url : `${profile.avatar_url}?t=${Date.now()}`}
               alt={displayName}
               width={40}
               height={40}

@@ -23,6 +23,8 @@ export default function Header() {
   // (or vice-versa) during the first render cycle.
   const [authReady, setAuthReady] = useState(false)
 
+  // Re-fetch profile data whenever the route changes so avatar/name updates
+  // immediately after the user edits their profile (fixes stale header avatar).
   useEffect(() => {
     const supabase = createClient()
 
@@ -72,7 +74,11 @@ export default function Header() {
     )
 
     return () => subscription.unsubscribe()
-  }, [])
+  // pathname is intentionally included: re-fetch profile on every route change
+  // so that avatar/display_name updates are reflected immediately in the header
+  // when the user navigates away from /profile after saving changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
