@@ -120,8 +120,17 @@ export default function ProfileClient({ profile, checkins }: Props) {
         </div>
 
         {/* Avatar + Upload */}
-        <div className="flex flex-col items-center gap-4">
-          <div className="relative">
+        <div className="flex flex-col items-center gap-3">
+          {/* Entire circle is a click target */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            title={t.profile.uploadAvatar}
+            className="relative group cursor-pointer disabled:cursor-not-allowed focus:outline-none"
+            aria-label={t.profile.uploadAvatar}
+          >
+            {/* Avatar image or initials */}
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
@@ -136,25 +145,37 @@ export default function ProfileClient({ profile, checkins }: Props) {
                 <span className="text-brand-pink text-2xl font-black">{initials}</span>
               </div>
             )}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="absolute -bottom-1 -right-1 w-8 h-8 bg-brand-pink rounded-full flex items-center justify-center hover:bg-brand-pink/90 transition-colors disabled:opacity-50"
-              title={t.profile.uploadAvatar}
-            >
+
+            {/* Hover / uploading overlay on the circle */}
+            <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-opacity duration-200 ${
+              uploading
+                ? 'bg-black/50 opacity-100'
+                : 'bg-black/40 opacity-0 group-hover:opacity-100'
+            }`}>
               {uploading ? (
-                <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
+                <svg className="w-7 h-7 text-white animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
               ) : (
-                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
               )}
-            </button>
-          </div>
+            </div>
+
+            {/* Small camera badge (always visible) */}
+            <span className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-pink rounded-full flex items-center justify-center border-2 border-brand-dark shadow">
+              <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </span>
+          </button>
+
+          <p className="text-white/40 text-xs">{t.profile.uploadAvatar}</p>
+
           <input
             ref={fileInputRef}
             type="file"
@@ -162,8 +183,8 @@ export default function ProfileClient({ profile, checkins }: Props) {
             className="hidden"
             onChange={handleAvatarUpload}
           />
-          {uploadMsg && <p className="text-green-400 text-xs">{uploadMsg}</p>}
-          {uploadError && <p className="text-red-400 text-xs">{uploadError}</p>}
+          {uploadMsg && <p className="text-green-400 text-xs text-center">{uploadMsg}</p>}
+          {uploadError && <p className="text-red-400 text-xs text-center">{uploadError}</p>}
         </div>
 
         {/* Edit Form */}
