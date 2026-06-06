@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/supabase/is-admin'
 
 function makeAnonSupabase() {
   const cookieStore = cookies()
@@ -20,15 +21,6 @@ function makeAnonSupabase() {
       },
     }
   )
-}
-
-async function requireAdmin() {
-  const supabase = makeAnonSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-  if (!adminEmails.includes(user.email || '')) return null
-  return user
 }
 
 // GET: List photos for a specific event (public — anon key is fine)

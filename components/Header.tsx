@@ -9,6 +9,21 @@ import LanguageToggle from './LanguageToggle'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
+async function fetchIsAdmin(userId: string): Promise<boolean> {
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single()
+    if (error || !data) return false
+    return data.is_admin === true
+  } catch {
+    return false
+  }
+}
+
 export default function Header() {
   const { t } = useLanguage()
   const pathname = usePathname()
@@ -19,15 +34,24 @@ export default function Header() {
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUser(user)
-      const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim())
-      setIsAdmin(adminEmails.includes(user?.email || ''))
+      if (user) {
+        const admin = await fetchIsAdmin(user.id)
+        setIsAdmin(admin)
+      } else {
+        setIsAdmin(false)
+      }
     })
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim())
-      setIsAdmin(adminEmails.includes(session?.user?.email || ''))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null
+      setUser(currentUser)
+      if (currentUser) {
+        const admin = await fetchIsAdmin(currentUser.id)
+        setIsAdmin(admin)
+      } else {
+        setIsAdmin(false)
+      }
     })
     return () => subscription.unsubscribe()
   }, [])

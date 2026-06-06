@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { requireAdmin } from '@/lib/supabase/is-admin'
 
 function makeSupabase() {
   const cookieStore = cookies()
@@ -95,10 +96,9 @@ export async function GET(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Admin: return full checkin list with profile info
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-  const isAdmin = user && adminEmails.includes(user.email || '')
+  const adminUser = await requireAdmin()
 
-  if (isAdmin) {
+  if (adminUser) {
     const { data: checkins, error } = await supabase
       .from('checkins')
       .select('profile_id, checked_in_at, profiles(name, display_name)')

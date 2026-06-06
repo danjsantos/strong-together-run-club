@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { requireAdmin } from '@/lib/supabase/is-admin'
 
 
 function makeSupabase() {
@@ -30,8 +31,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-  if (!adminEmails.includes(user.email || '')) {
+  const adminUser = await requireAdmin()
+  if (!adminUser) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

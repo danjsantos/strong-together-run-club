@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { checkIsAdmin } from '@/lib/supabase/is-admin'
 import AdminNav from './AdminNav'
 
 
@@ -11,8 +12,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!user) redirect('/login?redirectTo=/admin')
 
-  const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-  if (!adminEmails.includes(user.email || '')) redirect('/')
+  const admin = await checkIsAdmin()
+  if (!admin) redirect('/')
 
   return (
     <div className="min-h-screen pt-16">

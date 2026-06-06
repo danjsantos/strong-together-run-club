@@ -1,5 +1,33 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
+
+/**
+ * Query profiles.is_admin for the given user ID using the service-role key
+ * so RLS never blocks the read.  Returns false on any error.
+ */
+async function isAdminUser(userId: string): Promise<boolean> {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) return false
+
+    const adminDb = createServiceClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+
+    const { data, error } = await adminDb
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', userId)
+      .single()
+
+    if (error || !data) return false
+    return data.is_admin === true
+  } catch {
+    return false
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -46,8 +74,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url)
       }
 
-      const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim())
-      if (!adminEmails.includes(user.email || '')) {
+      // Must have is_admin = true in the profiles table
+      const admin = await isAdminUser(user.id)
+      if (!admin) {
         const url = request.nextUrl.clone()
         url.pathname = '/'
         return NextResponse.redirect(url)
