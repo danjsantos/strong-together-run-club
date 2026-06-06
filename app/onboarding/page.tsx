@@ -185,10 +185,16 @@ export default function OnboardingPage() {
     }, { onConflict: 'id' })
 
     if (upsertError) {
+      // Root Cause 2 fix: do NOT redirect if the upsert failed — the user's data
+      // would be lost and onboarding_complete would remain false, causing the loop.
       console.error('[onboarding] profile upsert failed:', upsertError.message)
+      setSaving(false)
+      alert('Could not save your profile. Please try again.')
+      return
     }
 
     setSaving(false)
+    // Only redirect AFTER the upsert has successfully persisted onboarding_complete = true.
     router.push('/dashboard')
   }
 

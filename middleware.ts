@@ -75,6 +75,28 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
+    // Root Cause 1 fix: if the user is already onboarded, skip /onboarding
+    // and send them straight to /dashboard so the flow never loops.
+    if (isOnboardingRoute && user) {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+      if (url && key) {
+        const adminDb = createServiceClient(url, key, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        })
+        const { data: profileRow } = await adminDb
+          .from('profiles')
+          .select('onboarding_complete')
+          .eq('id', user.id)
+          .single()
+        if (profileRow?.onboarding_complete === true) {
+          const dest = request.nextUrl.clone()
+          dest.pathname = '/dashboard'
+          return NextResponse.redirect(dest)
+        }
+      }
+    }
+
     if (isAdminRoute) {
       if (!user) {
         const url = request.nextUrl.clone()

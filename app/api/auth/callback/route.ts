@@ -60,27 +60,29 @@ export async function GET(request: NextRequest) {
 
   const user = data.user
 
-  // Upsert the profile row.  The database trigger `handle_new_user` already
-  // does this on first sign-up, but the upsert here is a safety net for
-  // OAuth sign-ins where the trigger may not have run yet.
-  await supabase.from('profiles').upsert(
-    {
-      id: user.id,
-      email: user.email,
-      name: user.user_metadata?.full_name ?? user.email,
-      avatar_url: user.user_metadata?.avatar_url ?? null,
-    },
-    { onConflict: 'id' }
-  )
-
-  // Check onboarding status.
-  const { data: profileRow } = await supabase
+  // Root Cause 1 fix: read the existing profile FIRST so we know whether
+  // onboarding has already been completed before deciding what to upsert.
+  const { data: existingProfile } = await supabase
     .from('profiles')
     .select('onboarding_complete')
     .eq('id', user.id)
     .single()
 
-  const onboardingDone = profileRow?.onboarding_complete === true
+  if (!existingProfile) {
+    // Profile row does not exist yet — create it with onboarding_complete = false.
+    // The trigger should have done this, but this is a safety net for OAuth flows.
+    await supabase.from('profiles').insert({
+      id: user.id,
+      email: user.email,
+      name: user.user_metadata?.full_name ?? user.email,
+      avatar_url: user.user_metadata?.avatar_url ?? null,
+      onboarding_complete: false,
+    })
+  }
+  // If the profile already exists we do NOT touch it here — in particular we
+  // must NOT overwrite onboarding_complete, which would reset a completed user.
+
+  const onboardingDone = existingProfile?.onboarding_complete === true
 
   if (!onboardingDone) {
     const onboardingUrl = new URL('/onboarding', requestUrl.origin)

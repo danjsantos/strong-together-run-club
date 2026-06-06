@@ -20,6 +20,7 @@ const BADGE_DEFS = [
 interface Profile {
   id: string
   name: string | null
+  email: string | null
   display_name: string | null
   avatar_url: string | null
   bio: string | null
@@ -118,7 +119,10 @@ export default function DashboardClient({
   const [rsvping, setRsvping] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const displayName = profile?.display_name || profile?.name || 'Runner'
+  // Dashboard name fix: prefer display_name, then name, then the part of the
+  // email address before the '@' sign.  Never fall back to the generic 'Runner'.
+  const emailPrefix = profile?.email ? profile.email.split('@')[0] : null
+  const displayName = profile?.display_name || profile?.name || emailPrefix || 'Runner'
   const earnedBadges = BADGE_DEFS.filter((b) => totalCheckins >= b.threshold)
 
   const handleRsvp = async () => {
