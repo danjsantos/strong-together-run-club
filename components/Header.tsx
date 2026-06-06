@@ -100,6 +100,7 @@ export default function Header() {
     { href: '/next-run', label: t.nav.nextRun },
     { href: '/gallery', label: t.nav.gallery },
     { href: '/leaderboard', label: t.nav.leaderboard },
+    ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
     ...(isAdmin ? [{ href: '/admin', label: t.nav.admin }] : []),
   ]
 
@@ -253,6 +254,15 @@ export default function Header() {
                     }`}
                   >
                     {t.nav.profile}
+                  </Link>
+                  <Link
+                    href="/checkin"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`text-2xl font-semibold py-3 border-b border-white/10 transition-colors ${
+                      pathname === '/checkin' ? 'text-brand-pink' : 'text-white/80 hover:text-white'
+                    }`}
+                  >
+                    Scan QR Check-in
                   </Link>
                   <button
                     onClick={handleLogout}

@@ -89,15 +89,28 @@ export default function OnboardingPage() {
     avatarFile: null,
   })
 
-  // Load current user
+  // Load current user — also guard against already-onboarded users
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.push('/login'); return }
+
+      // If the user has already completed onboarding, send them to /dashboard
+      const { data: profileRow } = await supabase
+        .from('profiles')
+        .select('onboarding_complete, display_name, avatar_url')
+        .eq('id', user.id)
+        .single()
+
+      if (profileRow?.onboarding_complete) {
+        router.replace('/dashboard')
+        return
+      }
+
       setUserId(user.id)
-      // Pre-fill name from auth metadata
-      const name = user.user_metadata?.full_name || user.user_metadata?.name || ''
-      const avatar = user.user_metadata?.avatar_url || ''
+      // Pre-fill name from auth metadata or existing profile
+      const name = profileRow?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || ''
+      const avatar = profileRow?.avatar_url || user.user_metadata?.avatar_url || ''
       setProfile((p) => ({ ...p, displayName: name, avatarUrl: avatar }))
     })
   }, [router])
@@ -143,53 +156,43 @@ export default function OnboardingPage() {
       }
     }
 
-    // Step 1: Always save the core columns that are guaranteed to exist.
-    // This ensures onboarding_complete is persisted even if the migration
-    // adding the extra columns hasn't been run yet.
+    // Save ALL collected data including city, goals (jsonb), and mark onboarding complete
     await supabase.from('profiles').upsert({
       id: userId,
       display_name: profile.displayName || null,
       name: profile.displayName || null,
       bio: profile.bio || null,
       avatar_url: finalAvatarUrl || null,
+      city: profile.city || null,
+      goals: profile.goals.length > 0 ? profile.goals : null,
+      experience_level: profile.experienceLevel || null,
+      weekly_mileage: profile.weeklyMileage || null,
+      avg_pace: profile.avgPace || null,
+      preferred_distance: profile.preferredDistance || null,
+      shoe_brand: profile.shoeBrand || null,
+      running_goals: profile.goals.length > 0 ? profile.goals : null,
       onboarding_complete: true,
     }, { onConflict: 'id' })
 
-    // Step 2: Try to save the extended running-profile columns (added by migration 002).
-    // If the columns don't exist yet this will fail silently — that's fine.
-    if (profile.city || profile.experienceLevel || profile.weeklyMileage ||
-        profile.avgPace || profile.preferredDistance || profile.shoeBrand ||
-        profile.goals.length > 0) {
-      await supabase.from('profiles').update({
-        city: profile.city || null,
-        experience_level: profile.experienceLevel || null,
-        weekly_mileage: profile.weeklyMileage || null,
-        avg_pace: profile.avgPace || null,
-        preferred_distance: profile.preferredDistance || null,
-        shoe_brand: profile.shoeBrand || null,
-        running_goals: profile.goals.length > 0 ? profile.goals : null,
-      }).eq('id', userId)
-    }
-
     setSaving(false)
-    router.push('/')
+    router.push('/dashboard')
   }
 
   // ── Skip (marks onboarding complete so it won't show again) ─────────────────
   const handleSkip = async () => {
-    if (!userId) { router.push('/'); return }
+    if (!userId) { router.push('/dashboard'); return }
     const supabase = createClient()
     await supabase.from('profiles').upsert(
       { id: userId, onboarding_complete: true },
       { onConflict: 'id' }
     )
-    router.push('/')
+    router.push('/dashboard')
   }
 
   const canNext = () => {
     if (step === 1) return true // avatar optional
     if (step === 2) return profile.displayName.trim().length > 0
-    if (step === 3) return profile.experienceLevel !== ''
+    if (step === 3) return true // all optional
     return true
   }
 
@@ -343,7 +346,7 @@ export default function OnboardingPage() {
 
               {/* Experience level */}
               <div className="flex flex-col gap-2">
-                <label className="text-white/60 text-xs font-semibold uppercase tracking-wider">Experience Level *</label>
+                <label className="text-white/60 text-xs font-semibold uppercase tracking-wider">Experience Level</label>
                 <div className="flex flex-wrap gap-2">
                   {[
                     { value: 'beginner', label: 'Beginner', emoji: '🌱', sub: '< 1 year' },
@@ -441,7 +444,6 @@ export default function OnboardingPage() {
                 <h2 className="text-2xl font-black text-white mb-1">What Are Your Goals?</h2>
                 <p className="text-white/50 text-sm">Pick all that apply — we&apos;ll help you get there</p>
               </div>
-
               <div className="flex flex-wrap gap-2">
                 {[
                   { label: 'Run my first 5K', emoji: '🎯' },
@@ -466,13 +468,11 @@ export default function OnboardingPage() {
                   />
                 ))}
               </div>
-
               {profile.goals.length > 0 && (
                 <p className="text-brand-pink text-xs text-center font-semibold">
                   {profile.goals.length} goal{profile.goals.length > 1 ? 's' : ''} selected ✓
                 </p>
               )}
-
               {/* Motivational quote */}
               <div className="bg-brand-pink/10 border border-brand-pink/20 rounded-2xl p-4 text-center mt-2">
                 <p className="text-white/70 text-xs italic">
@@ -520,18 +520,16 @@ export default function OnboardingPage() {
             </button>
           </div>
 
-          {/* Skip link */}
-          {step === 1 && (
-            <div className="text-center mt-4">
-              <button
-                type="button"
-                onClick={handleSkip}
-                className="text-white/30 text-xs hover:text-white/60 transition-colors"
-              >
-                Skip for now
-              </button>
-            </div>
-          )}
+          {/* Skip link — shown on ALL steps */}
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="text-white/30 text-xs hover:text-white/60 transition-colors"
+            >
+              Skip for now
+            </button>
+          </div>
         </div>
 
         {/* Step dots */}

@@ -8,6 +8,14 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate } from '@/lib/utils'
 import type { CheckinWithEvent } from './page'
 
+const BADGE_DEFS = [
+  { id: 'first_steps', emoji: '👟', label: 'First Steps' },
+  { id: 'consistent_runner', emoji: '🏅', label: 'Consistent Runner' },
+  { id: 'strong_together', emoji: '💪', label: 'Strong Together' },
+  { id: 'dedicated', emoji: '🔥', label: 'Dedicated' },
+  { id: 'community_champion', emoji: '🏆', label: 'Community Champion' },
+]
+
 interface Profile {
   id: string
   name: string | null
@@ -15,6 +23,7 @@ interface Profile {
   avatar_url: string | null
   display_name: string | null
   bio: string | null
+  badges?: string[] | null
 }
 
 interface Props {
@@ -232,6 +241,24 @@ export default function ProfileClient({ profile, checkins }: Props) {
             {saving ? t.profile.saving : t.common.save}
           </button>
         </form>
+
+        {/* Badges */}
+        {profile.badges && profile.badges.length > 0 && (
+          <div className="bg-gradient-card rounded-2xl p-6 border border-brand-wine/40">
+            <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-4">Badges Earned</p>
+            <div className="flex flex-wrap gap-3">
+              {BADGE_DEFS.filter((b) => profile.badges?.includes(b.id)).map((badge) => (
+                <div
+                  key={badge.id}
+                  className="flex items-center gap-2 bg-brand-pink/10 border border-brand-pink/20 rounded-full px-4 py-2"
+                >
+                  <span className="text-lg">{badge.emoji}</span>
+                  <span className="text-white text-xs font-semibold">{badge.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="bg-gradient-card rounded-2xl p-6 border border-brand-wine/40 flex items-center justify-between">

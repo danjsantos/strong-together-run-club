@@ -12,7 +12,7 @@ export default async function ProfilePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, name, email, avatar_url, display_name, bio')
+    .select('id, name, email, avatar_url, display_name, bio, badges')
     .eq('id', user.id)
     .single()
 
@@ -25,7 +25,7 @@ export default async function ProfilePage() {
 
   return (
     <ProfileClient
-      profile={profile ?? { id: user.id, name: user.user_metadata?.full_name ?? null, email: user.email ?? null, avatar_url: user.user_metadata?.avatar_url ?? null, display_name: null, bio: null }}
+      profile={profile ?? { id: user.id, name: user.user_metadata?.full_name ?? null, email: user.email ?? null, avatar_url: user.user_metadata?.avatar_url ?? null, display_name: null, bio: null, badges: [] }}
       checkins={(checkins ?? []) as unknown as CheckinWithEvent[]}
     />
   )

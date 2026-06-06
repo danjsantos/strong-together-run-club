@@ -56,10 +56,11 @@ async function getLeaderboard(supabase: ReturnType<typeof createClient>, period:
 export default async function LeaderboardPage() {
   const supabase = createClient()
 
-  const [monthly, yearly, allTime] = await Promise.all([
+  const [monthly, yearly, allTime, { data: { user } }] = await Promise.all([
     getLeaderboard(supabase, 'monthly'),
     getLeaderboard(supabase, 'yearly'),
     getLeaderboard(supabase, 'all'),
+    supabase.auth.getUser(),
   ])
 
   return (
@@ -67,6 +68,7 @@ export default async function LeaderboardPage() {
       monthly={monthly}
       yearly={yearly}
       allTime={allTime}
+      currentUserId={user?.id ?? null}
     />
   )
 }

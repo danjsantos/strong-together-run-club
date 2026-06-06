@@ -59,10 +59,21 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { eventId, name } = body
+  const { eventId } = body
+  let { name } = body
 
-  if (!eventId || !name?.trim()) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  if (!eventId) {
+    return NextResponse.json({ error: 'Missing eventId' }, { status: 400 })
+  }
+
+  // Auto-fill name from profile if not provided
+  if (!name?.trim()) {
+    const { data: profileRow } = await supabase
+      .from('profiles')
+      .select('display_name, name')
+      .eq('id', user.id)
+      .single()
+    name = profileRow?.display_name || profileRow?.name || user.user_metadata?.full_name || user.email || 'Runner'
   }
 
   // Check event exists and is upcoming

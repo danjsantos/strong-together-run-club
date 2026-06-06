@@ -22,6 +22,41 @@ function makeSupabase() {
   )
 }
 
+const BADGE_MILESTONES = [
+  { id: 'first_steps', threshold: 1 },
+  { id: 'consistent_runner', threshold: 5 },
+  { id: 'strong_together', threshold: 10 },
+  { id: 'dedicated', threshold: 25 },
+  { id: 'community_champion', threshold: 50 },
+]
+
+async function awardBadges(supabase: ReturnType<typeof makeSupabase>, userId: string) {
+  const { count } = await supabase
+    .from('checkins')
+    .select('*', { count: 'exact', head: true })
+    .eq('profile_id', userId)
+
+  const totalCheckins = count ?? 0
+
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('badges')
+    .eq('id', userId)
+    .single()
+
+  const currentBadges: string[] = Array.isArray(profileRow?.badges) ? profileRow.badges : []
+  const newBadges = BADGE_MILESTONES
+    .filter((b) => totalCheckins >= b.threshold && !currentBadges.includes(b.id))
+    .map((b) => b.id)
+
+  if (newBadges.length > 0) {
+    await supabase
+      .from('profiles')
+      .update({ badges: [...currentBadges, ...newBadges] })
+      .eq('id', userId)
+  }
+}
+
 export async function POST(request: NextRequest) {
   const supabase = makeSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -84,6 +119,9 @@ export async function POST(request: NextRequest) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Award badges after successful check-in
+  await awardBadges(supabase, user.id)
 
   return NextResponse.json({ success: true }, { status: 201 })
 }

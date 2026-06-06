@@ -1,10 +1,10 @@
 'use client'
-
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import { formatDate } from '@/lib/utils'
+import QRGenerator from '@/components/QRGenerator'
 
 interface Event {
   id: string
@@ -151,7 +151,10 @@ export default function AdminDashboardClient({ events, memberCount, totalRsvps, 
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {!isPast && event.is_active && (
+                      <QRGenerator eventId={event.id} eventTitle={title} />
+                    )}
                     <button
                       onClick={() => loadRsvps(event.id)}
                       className="text-white/50 hover:text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-white/5 transition-colors"
