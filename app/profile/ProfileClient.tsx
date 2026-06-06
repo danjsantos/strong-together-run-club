@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useLanguage } from '@/components/providers/LanguageProvider'
@@ -33,6 +33,16 @@ export default function ProfileClient({ profile, checkins }: Props) {
   const [uploadMsg, setUploadMsg] = useState('')
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        window.location.href = '/'
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   const initials = (displayName || profile.email || '?')
     .split(' ')
@@ -121,7 +131,6 @@ export default function ProfileClient({ profile, checkins }: Props) {
 
         {/* Avatar + Upload */}
         <div className="flex flex-col items-center gap-3">
-          {/* Entire circle is a click target */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -130,7 +139,6 @@ export default function ProfileClient({ profile, checkins }: Props) {
             className="relative group cursor-pointer disabled:cursor-not-allowed focus:outline-none"
             aria-label={t.profile.uploadAvatar}
           >
-            {/* Avatar image or initials */}
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
@@ -146,7 +154,6 @@ export default function ProfileClient({ profile, checkins }: Props) {
               </div>
             )}
 
-            {/* Hover / uploading overlay on the circle */}
             <div className={`absolute inset-0 rounded-full flex items-center justify-center transition-opacity duration-200 ${
               uploading
                 ? 'bg-black/50 opacity-100'
@@ -165,7 +172,6 @@ export default function ProfileClient({ profile, checkins }: Props) {
               )}
             </div>
 
-            {/* Small camera badge (always visible) */}
             <span className="absolute -bottom-1 -right-1 w-7 h-7 bg-brand-pink rounded-full flex items-center justify-center border-2 border-brand-dark shadow">
               <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
