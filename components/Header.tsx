@@ -78,12 +78,10 @@ export default function Header() {
   const handleLogout = async () => {
     setIsMenuOpen(false)
     const supabase = createClient()
-    // scope: 'global' invalidates all sessions (not just this browser tab)
-    await supabase.auth.signOut({ scope: 'global' })
-    // Replace history entry so the browser won't navigate back to /admin,
-    // then force a full reload so the middleware re-evaluates the cleared session.
-    router.replace('/')
-    setTimeout(() => window.location.reload(), 50)
+    await supabase.auth.signOut()
+    // Hard navigate to home — forces a full page reload so the server
+    // re-evaluates the cleared session cookie (fixes admin redirect loop).
+    window.location.href = '/'
   }
 
   const navLinks = [
