@@ -73,7 +73,7 @@ export default function ProfileClient({ profile, checkins }: Props) {
 
     const supabase = createClient()
     const ext = file.name.split('.').pop() || 'jpg'
-    const filename = `${profile.id}/avatar.${ext}`
+    const filename = `${profile.id}/avatar_${Date.now()}.${ext}`
 
     const { error: storageError } = await supabase.storage
       .from('avatars')

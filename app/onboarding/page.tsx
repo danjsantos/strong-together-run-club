@@ -152,7 +152,7 @@ export default function OnboardingPage() {
     // Upload avatar if a new file was chosen
     if (profile.avatarFile) {
       const ext = profile.avatarFile.name.split('.').pop()
-      const path = `${userId}/avatar.${ext}`
+      const path = `${userId}/avatar_${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(path, profile.avatarFile, { upsert: true })
