@@ -121,7 +121,7 @@ function LoginContent() {
   const { t } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirectTo') || '/'
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard'
 
   const [tab, setTab] = useState<Tab>('signin')
 
