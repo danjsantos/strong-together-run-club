@@ -1,8 +1,10 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import HeroSection from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
 import NextRunPreview from '@/components/NextRunPreview'
 import PhotoGallery from '@/components/PhotoGallery'
+import AuthCodeHandler from '@/components/AuthCodeHandler'
 
 export default async function HomePage() {
   const supabase = createClient()
@@ -74,6 +76,9 @@ export default async function HomePage() {
 
   return (
     <>
+      <Suspense fallback={null}>
+        <AuthCodeHandler />
+      </Suspense>
       <HeroSection />
       <StatsSection memberCount={memberCount || 0} totalRsvps={totalRsvps || 0} />
       {nextEvent && (
