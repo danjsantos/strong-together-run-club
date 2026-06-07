@@ -267,6 +267,22 @@ export default function DashboardClient({
             <h1 className="text-2xl font-black text-white">{displayName} 👋</h1>
           </div>
 
+          {/* ── Onboarding nudge (soft — never blocks access) ─────────────────── */}
+          {!profile?.onboarding_complete && (
+            <div className="flex items-center justify-between gap-4 bg-brand-pink/10 border border-brand-pink/30 rounded-2xl px-5 py-4">
+              <div>
+                <p className="text-brand-pink font-bold text-sm">Complete your profile 🏃</p>
+                <p className="text-white/50 text-xs mt-0.5">Add your name, photo and running goals so the community knows you!</p>
+              </div>
+              <a
+                href="/onboarding"
+                className="flex-shrink-0 bg-brand-pink text-white text-xs font-bold px-4 py-2 rounded-full hover:bg-brand-pink/90 transition-colors"
+              >
+                Set up
+              </a>
+            </div>
+          )}
+
           {/* ── Top 3 cards ─────────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 

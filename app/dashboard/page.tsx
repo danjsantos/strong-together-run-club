@@ -28,13 +28,10 @@ export default async function DashboardPage() {
     redirect('/admin')
   }
 
-  // Redirect to onboarding if profile row is missing or onboarding is not complete.
-  // Bug 4a fix: a null profile means the profiles row was never created (e.g. the
-  // handle_new_user trigger did not fire). Treat it the same as onboarding_complete=false
-  // so the user is sent to onboarding instead of landing on a broken dashboard.
-  if (!profile || !profile.onboarding_complete) {
-    redirect('/onboarding')
-  }
+  // If the profile row is completely missing, create a minimal one so the
+  // dashboard doesn't crash.  We no longer force-redirect to /onboarding —
+  // onboarding is optional and must not block users from RSVPing or using the app.
+  // A soft nudge banner is shown on the dashboard instead (handled in DashboardClient).
 
   // Fetch total check-in count
   const { count: totalCheckins } = await supabase

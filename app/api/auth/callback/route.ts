@@ -11,9 +11,11 @@ import type { NextRequest } from 'next/server'
  * Supabase redirects here after Google OAuth (or email confirmation) with
  * a one-time `code` query parameter.  We exchange it for a session, persist
  * the session cookies, upsert the user's profile row, and then redirect the
- * browser to the correct destination:
- *   - /onboarding  — if the user has never completed onboarding
- *   - `next` param — otherwise (defaults to /)
+ * browser to the intended destination (`next` param, defaults to /dashboard).
+ *
+ * Onboarding is NO LONGER forced here — users can RSVP and use the app
+ * without completing onboarding first.  The onboarding prompt is shown
+ * as a soft nudge on the dashboard instead.
  *
  * This route MUST be registered as the redirect URL in:
  *   1. Supabase Dashboard → Authentication → URL Configuration → Redirect URLs
@@ -82,13 +84,7 @@ export async function GET(request: NextRequest) {
   // If the profile already exists we do NOT touch it here — in particular we
   // must NOT overwrite onboarding_complete, which would reset a completed user.
 
-  const onboardingDone = existingProfile?.onboarding_complete === true
-
-  if (!onboardingDone) {
-    const onboardingUrl = new URL('/onboarding', requestUrl.origin)
-    onboardingUrl.searchParams.set('next', next)
-    return NextResponse.redirect(onboardingUrl)
-  }
-
+  // Always redirect to the intended destination — onboarding is optional and
+  // must not block users from RSVPing or accessing public pages.
   return NextResponse.redirect(new URL(next, requestUrl.origin))
 }
