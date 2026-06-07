@@ -9,6 +9,39 @@ const QR_SECRET = new TextEncoder().encode(
   process.env.QR_SECRET || 'strong-together-qr-secret-change-in-production'
 )
 
+/**
+ * Returns the UTC timestamp for a given clock time (hour, minute) in ET today.
+ * Works correctly for both EST (UTC-5) and EDT (UTC-4).
+ */
+function etTimeToUTC(hour: number, minute: number): Date {
+  const TZ = 'America/New_York'
+  const now = new Date()
+
+  // Get today's date parts in ET
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: TZ,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  })
+  const parts = fmt.formatToParts(now)
+  const p: Record<string, number> = {}
+  parts.forEach(({ type, value }) => { if (type !== 'literal') p[type] = parseInt(value, 10) })
+
+  // Use the Temporal-like trick: find the UTC offset for ET at this moment
+  // by comparing a fixed UTC time rendered in ET vs UTC
+  const probe = new Date(now)
+  const etHourNow = parseInt(
+    probe.toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }),
+    10
+  )
+  const utcHourNow = probe.getUTCHours()
+  // ET offset in hours (negative = behind UTC)
+  const offsetHours = etHourNow - utcHourNow
+
+  // Build the target as a UTC date
+  const target = new Date(Date.UTC(p.year, p.month - 1, p.day, hour - offsetHours, minute, 0))
+  return target
+}
+
 export async function POST(request: NextRequest) {
   const adminUser = await requireAdmin()
   if (!adminUser) {
@@ -20,16 +53,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing eventId' }, { status: 400 })
   }
 
-  // Token is valid from 5:00 AM to 2:00 PM on the event day.
-  // We encode the eventId and an expiry timestamp inside the JWT.
-  // The expiry is set to 2:00 PM today.
+  // Token is valid from 5:00 AM to 2:00 PM ET on the event day.
   const now = new Date()
-  const expiry = new Date(now)
-  expiry.setHours(14, 0, 0, 0) // 2:00 PM same day
+  let expiry = etTimeToUTC(14, 0) // 2:00 PM ET today
 
-  // If it's already past 2 PM, set expiry to 2 PM tomorrow
+  // If it's already past 2 PM ET, set expiry to 2 PM ET tomorrow
   if (now >= expiry) {
-    expiry.setDate(expiry.getDate() + 1)
+    expiry = new Date(expiry.getTime() + 24 * 60 * 60 * 1000)
   }
 
   const token = await new SignJWT({ eventId, type: 'checkin' })

@@ -66,22 +66,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 })
   }
 
-  // Check-in is only allowed on the day of the event
+  // Check-in is only allowed on the day of the event.
+  // All comparisons use America/New_York (ET) so the window is correct
+  // regardless of what UTC time the server reports.
+  const TZ = 'America/New_York'
   const eventDate = new Date(event.date)
   const today = new Date()
-  const sameDay =
-    eventDate.getFullYear() === today.getFullYear() &&
-    eventDate.getMonth() === today.getMonth() &&
-    eventDate.getDate() === today.getDate()
+
+  const fmtDate = (d: Date) =>
+    d.toLocaleDateString('en-CA', { timeZone: TZ }) // 'YYYY-MM-DD'
+
+  const sameDay = fmtDate(eventDate) === fmtDate(today)
 
   if (!sameDay) {
     return NextResponse.json({ error: 'Check-in is only available on the day of the event' }, { status: 400 })
   }
 
-  // Enforce the 5 AM – 2 PM window on event day
-  const hour = today.getHours()
-  if (hour < 5 || hour >= 14) {
-    return NextResponse.json({ error: 'Check-in window is 5:00 AM – 2:00 PM on event day' }, { status: 400 })
+  // Enforce the 5 AM – 2 PM ET window on event day
+  const etHour = parseInt(
+    today.toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }),
+    10
+  )
+  if (etHour < 5 || etHour >= 14) {
+    return NextResponse.json({ error: 'Check-in window is 5:00 AM – 2:00 PM ET on event day' }, { status: 400 })
   }
 
   // Insert check-in

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/is-admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 function makeSupabase() {
   const cookieStore = cookies()
@@ -133,11 +134,12 @@ export async function GET(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Admin: return full checkin list with profile info
+  // Admin: return full checkin list with profile info using service-role client
   const adminUser = await requireAdmin()
 
   if (adminUser) {
-    const { data: checkins, error } = await supabase
+    const adminClient = createAdminClient()
+    const { data: checkins, error } = await adminClient
       .from('checkins')
       .select('profile_id, checked_in_at, profiles(name, display_name)')
       .eq('event_id', eventId)

@@ -1,9 +1,15 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/supabase/is-admin'
+import { redirect } from 'next/navigation'
 import AdminDashboardClient from './AdminDashboardClient'
 
-
 export default async function AdminPage() {
-  const supabase = createClient()
+  // Guard: only admins can access this page
+  const adminUser = await requireAdmin()
+  if (!adminUser) redirect('/')
+
+  // Use the service-role client so RLS does not hide RSVPs / check-ins
+  const supabase = createAdminClient()
 
   const [
     { data: events },

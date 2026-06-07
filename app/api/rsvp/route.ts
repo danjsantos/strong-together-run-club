@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/is-admin'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 
 function makeSupabase() {
@@ -39,7 +40,9 @@ export async function GET(request: NextRequest) {
   const eventId = request.nextUrl.searchParams.get('eventId')
   if (!eventId) return NextResponse.json({ error: 'Missing eventId' }, { status: 400 })
 
-  const { data: rsvps, error } = await supabase
+  // Use the service-role client so RLS does not hide RSVPs
+  const adminClient = createAdminClient()
+  const { data: rsvps, error } = await adminClient
     .from('rsvps')
     .select('name, email, created_at')
     .eq('event_id', eventId)
