@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing eventId' }, { status: 400 })
   }
 
-  // Token is valid from 5:00 AM to 10:00 AM on the event day.
+  // Token is valid from 5:00 AM to 2:00 PM on the event day.
   // We encode the eventId and an expiry timestamp inside the JWT.
-  // The expiry is set to 10:00 AM today (or the event date if provided).
+  // The expiry is set to 2:00 PM today.
   const now = new Date()
   const expiry = new Date(now)
-  expiry.setHours(10, 0, 0, 0) // 10:00 AM same day
+  expiry.setHours(14, 0, 0, 0) // 2:00 PM same day
 
-  // If it's already past 10 AM, set expiry to 10 AM tomorrow
+  // If it's already past 2 PM, set expiry to 2 PM tomorrow
   if (now >= expiry) {
     expiry.setDate(expiry.getDate() + 1)
   }

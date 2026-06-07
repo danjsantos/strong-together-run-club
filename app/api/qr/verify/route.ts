@@ -78,10 +78,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Check-in is only available on the day of the event' }, { status: 400 })
   }
 
-  // Also enforce the 5 AM – 10 AM window
+  // Enforce the 5 AM – 2 PM window on event day
   const hour = today.getHours()
-  if (hour < 5 || hour >= 10) {
-    return NextResponse.json({ error: 'Check-in window is 5:00 AM – 10:00 AM on event day' }, { status: 400 })
+  if (hour < 5 || hour >= 14) {
+    return NextResponse.json({ error: 'Check-in window is 5:00 AM – 2:00 PM on event day' }, { status: 400 })
   }
 
   // Insert check-in
