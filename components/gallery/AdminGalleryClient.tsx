@@ -32,6 +32,53 @@ interface NewEventForm {
   location: string
 }
 
+/**
+ * Convert any image file to a JPEG Blob using a canvas element.
+ * This handles HEIC/HEIF from iPhones, which Supabase storage may reject
+ * depending on bucket configuration. Also enforces a max dimension and
+ * quality to keep file sizes under the 10 MB bucket limit.
+ */
+async function convertToJpeg(file: File, maxDimension = 2048, quality = 0.85): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width)
+          width = maxDimension
+        } else {
+          width = Math.round((width * maxDimension) / height)
+          height = maxDimension
+        }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('Canvas not supported')); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        blob => {
+          if (!blob) { reject(new Error('Failed to convert image')); return }
+          // Preserve original name but with .jpg extension
+          const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+          resolve(new File([blob], newName, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        quality
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error(`Cannot load image: ${file.name}`))
+    }
+    img.src = url
+  })
+}
+
 export default function AdminGalleryClient() {
   const { t, language } = useLanguage()
   const [events, setEvents] = useState<GalleryEvent[]>([])
@@ -39,6 +86,7 @@ export default function AdminGalleryClient() {
   const [photos, setPhotos] = useState<Photo[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
   const [creating, setCreating] = useState(false)
   const [showNewEventForm, setShowNewEventForm] = useState(false)
   const [newEvent, setNewEvent] = useState<NewEventForm>({ title: '', date: '', location: '' })
@@ -100,7 +148,6 @@ export default function AdminGalleryClient() {
       const res = await fetch('/api/gallery/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Send `title`, `date`, `location` — matching the DB column names
         body: JSON.stringify({
           title: newEvent.title.trim(),
           date: newEvent.date,
@@ -112,13 +159,11 @@ export default function AdminGalleryClient() {
         throw new Error(error)
       }
       const { event: created } = await res.json() as { event: GalleryEvent }
-      // Optimistically prepend the new event so it's immediately visible
       setEvents(prev => [created, ...prev])
       setNewEvent({ title: '', date: '', location: '' })
       setShowNewEventForm(false)
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create event')
-      // Refresh from server on error to stay in sync
       await loadEvents()
     } finally {
       setCreating(false)
@@ -130,22 +175,32 @@ export default function AdminGalleryClient() {
     setUploading(true)
     setUploadError(null)
     setUploadSuccess(false)
+    setUploadProgress({ current: 0, total: files.length })
 
     const supabase = createClient()
+    const fileArray = Array.from(files)
 
     try {
-      for (const file of Array.from(files)) {
-        if (!file.type.startsWith('image/')) {
-          setUploadError(`${file.name} is not an image file`)
-          continue
+      for (let i = 0; i < fileArray.length; i++) {
+        let file = fileArray[i]
+        setUploadProgress({ current: i + 1, total: fileArray.length })
+
+        // Convert HEIC/HEIF and any other format to JPEG for maximum
+        // compatibility with the Supabase bucket MIME restrictions and
+        // to ensure consistent behaviour across iOS/Android/desktop.
+        try {
+          file = await convertToJpeg(file)
+        } catch {
+          // If conversion fails (e.g. unsupported format), try the original
+          // file and let Supabase reject it with a clear error message.
         }
 
-        const ext = file.name.split('.').pop() || 'jpg'
+        const ext = 'jpg'
         const filename = `${selectedEvent.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
         const { error: storageError } = await supabase.storage
           .from('event-photos')
-          .upload(filename, file, { contentType: file.type, upsert: false })
+          .upload(filename, file, { contentType: 'image/jpeg', upsert: false })
 
         if (storageError) throw new Error(storageError.message)
 
@@ -167,12 +222,12 @@ export default function AdminGalleryClient() {
       setUploadSuccess(true)
       setTimeout(() => setUploadSuccess(false), 3000)
       await loadPhotos(selectedEvent.id)
-      // Refresh event list to update photo counts
       await loadEvents()
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
+      setUploadProgress(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -475,13 +530,13 @@ export default function AdminGalleryClient() {
                     ? selectedEvent.title_pt
                     : selectedEvent.title}
                 </h2>
-                {/* Upload button */}
+                {/* Upload button — uses label wrapping hidden input for reliable mobile tap */}
                 <label
-                  className={`bg-brand-pink text-white font-semibold px-5 py-2.5 rounded-xl cursor-pointer hover:bg-brand-pink/90 transition-colors flex items-center gap-2 self-start sm:self-auto ${
+                  className={`bg-brand-pink text-white font-semibold px-5 py-3 rounded-xl cursor-pointer hover:bg-brand-pink/90 transition-colors flex items-center gap-2 self-start sm:self-auto text-base active:scale-95 ${
                     uploading ? 'opacity-50 pointer-events-none' : ''
                   }`}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -489,7 +544,14 @@ export default function AdminGalleryClient() {
                       d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                     />
                   </svg>
-                  {uploading ? t.common.loading : t.gallery.uploadPhotos}
+                  {uploading
+                    ? uploadProgress
+                      ? `Uploading ${uploadProgress.current}/${uploadProgress.total}…`
+                      : t.common.loading
+                    : t.gallery.uploadPhotos}
+                  {/* accept="image/*" covers HEIC/HEIF on iOS natively.
+                      capture is intentionally omitted so the user can choose
+                      between camera and photo library on mobile. */}
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -517,10 +579,26 @@ export default function AdminGalleryClient() {
                 </div>
               )}
 
-              {/* Drag & drop upload zone */}
+              {/* Upload progress bar */}
+              {uploading && uploadProgress && (
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs text-white/50">
+                    <span>Processing photos…</span>
+                    <span>{uploadProgress.current}/{uploadProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-white/10 rounded-full h-1.5">
+                    <div
+                      className="bg-brand-pink h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Tap-to-upload zone (also works as drag-and-drop on desktop) */}
               <div
-                className="border-2 border-dashed border-brand-wine/40 rounded-xl p-6 text-center cursor-pointer hover:border-brand-pink/40 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-brand-wine/40 rounded-xl p-8 text-center cursor-pointer hover:border-brand-pink/40 active:border-brand-pink transition-colors"
+                onClick={() => !uploading && fileInputRef.current?.click()}
                 onDragOver={e => e.preventDefault()}
                 onDrop={e => {
                   e.preventDefault()
@@ -528,7 +606,7 @@ export default function AdminGalleryClient() {
                 }}
               >
                 <svg
-                  className="w-8 h-8 text-white/20 mx-auto mb-2"
+                  className="w-10 h-10 text-white/20 mx-auto mb-3"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -540,7 +618,8 @@ export default function AdminGalleryClient() {
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                   />
                 </svg>
-                <p className="text-white/40 text-sm">{t.gallery.dragDrop}</p>
+                <p className="text-white/50 text-sm font-medium">Tap to select photos</p>
+                <p className="text-white/30 text-xs mt-1">or drag & drop · all formats supported</p>
               </div>
 
               {/* Photos grid with drag-to-reorder */}
@@ -606,8 +685,8 @@ export default function AdminGalleryClient() {
                             Cover
                           </div>
                         )}
-                        {/* Action overlay */}
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
+                        {/* Action overlay — always visible on mobile (no hover) */}
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 sm:opacity-0 transition-opacity flex flex-col items-center justify-center gap-2 p-2">
                           <button
                             onClick={() => handleSetCover(photo.photo_url)}
                             className="text-white/80 hover:text-white text-[11px] font-medium bg-white/10 hover:bg-white/20 rounded px-2 py-1 transition-colors w-full text-center"
