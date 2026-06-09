@@ -281,7 +281,7 @@ export default function Header() {
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="text-2xl font-semibold py-3 text-white/50 hover:text-white/80 text-left transition-colors"
+                    className="text-2xl font-semibold py-3 border-b border-white/10 text-brand-pink hover:text-brand-pink/80 text-left transition-colors w-full"
                   >
                     {t.nav.logout}
                   </button>
