@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     .order('sort_order', { ascending: true })
     .order('uploaded_at', { ascending: true })
 
-  if (error && error.code === '42703') {
+  if (error && (error.code === '42703' || error.message?.includes('sort_order'))) {
     // sort_order column not yet migrated — fall back to uploaded_at ordering
     const fallback = await supabase
       .from('event_photos')
@@ -68,30 +68,54 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields: event_id, photo_url' }, { status: 400 })
   }
 
-  // Use service_role to bypass the "insert with check (false)" RLS policy
   const adminDb = createAdminClient()
 
-  // Determine the next sort_order value for this event
-  const { data: existing } = await adminDb
-    .from('event_photos')
-    .select('sort_order')
-    .eq('event_id', event_id)
-    .order('sort_order', { ascending: false })
-    .limit(1)
+  // Try inserting with sort_order first. If the column doesn't exist yet,
+  // fall back to inserting without it — this makes the upload work regardless
+  // of whether the migration has been applied.
+  let insertError: { code?: string; message?: string } | null = null
+  let insertData = null
 
-  const nextSortOrder = existing && existing.length > 0
-    ? (existing[0].sort_order ?? 0) + 1
-    : 0
+  // Attempt 1: with sort_order
+  try {
+    const { data: existing } = await adminDb
+      .from('event_photos')
+      .select('sort_order')
+      .eq('event_id', event_id)
+      .order('sort_order', { ascending: false })
+      .limit(1)
 
-  const { data, error } = await adminDb
-    .from('event_photos')
-    .insert({ event_id, photo_url, caption: caption || null, sort_order: nextSortOrder })
-    .select()
-    .single()
+    const nextSortOrder = existing && existing.length > 0
+      ? (existing[0].sort_order ?? 0) + 1
+      : 0
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const result = await adminDb
+      .from('event_photos')
+      .insert({ event_id, photo_url, caption: caption || null, sort_order: nextSortOrder })
+      .select()
+      .single()
 
-  return NextResponse.json({ photo: data }, { status: 201 })
+    insertData = result.data
+    insertError = result.error
+  } catch {
+    insertError = { message: 'Unexpected error on insert with sort_order' }
+  }
+
+  // Attempt 2: without sort_order (column missing)
+  if (insertError && (insertError.code === '42703' || insertError.message?.includes('sort_order'))) {
+    const result = await adminDb
+      .from('event_photos')
+      .insert({ event_id, photo_url, caption: caption || null })
+      .select()
+      .single()
+
+    insertData = result.data
+    insertError = result.error
+  }
+
+  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
+
+  return NextResponse.json({ photo: insertData }, { status: 201 })
 }
 
 // PATCH: Reorder photos for an event (admin only)
@@ -108,7 +132,6 @@ export async function PATCH(request: NextRequest) {
 
   const adminDb = createAdminClient()
 
-  // Update each photo's sort_order based on its position in the array
   const updates = orderedIds.map((id, index) =>
     adminDb
       .from('event_photos')
@@ -135,7 +158,6 @@ export async function DELETE(request: NextRequest) {
 
   const adminDb = createAdminClient()
 
-  // Delete from storage first (best-effort)
   if (photo_url) {
     try {
       const url = new URL(photo_url)
@@ -150,7 +172,6 @@ export async function DELETE(request: NextRequest) {
     }
   }
 
-  // Delete the DB record using service_role to bypass RLS
   const { error } = await adminDb.from('event_photos').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
