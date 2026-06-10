@@ -115,7 +115,7 @@ export default function Header() {
     { href: '/next-run', label: t.nav.nextRun },
     { href: '/gallery', label: t.nav.gallery },
     { href: '/leaderboard', label: t.nav.leaderboard },
-    { href: '/about', label: (t.nav as any).about },
+    { href: '/about', label: (t.nav as Record<string, string>).about },
     ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
     ...(isAdmin ? [{ href: '/admin', label: t.nav.admin }] : []),
   ]

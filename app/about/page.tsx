@@ -2,11 +2,11 @@
 
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import Link from 'next/link'
-import Image from 'next/image'
 
 export default function AboutPage() {
   const { t } = useLanguage()
-  const about = (t as any).about
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const about = (t as Record<string, any>).about
 
   return (
     <div className="min-h-screen bg-brand-dark">

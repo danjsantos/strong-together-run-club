@@ -31,7 +31,7 @@ export default function Footer() {
             <Link href="/next-run" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.nextRun}</Link>
             <Link href="/gallery" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.gallery}</Link>
             <Link href="/leaderboard" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.leaderboard}</Link>
-            <Link href="/about" className="text-white/60 text-sm hover:text-white transition-colors">{(t.nav as any).about}</Link>
+            <Link href="/about" className="text-white/60 text-sm hover:text-white transition-colors">{(t.nav as Record<string, string>).about}</Link>
             <Link href="/login" className="text-white/60 text-sm hover:text-white transition-colors">{t.nav.login}</Link>
           </div>
 
