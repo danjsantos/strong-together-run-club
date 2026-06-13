@@ -13,6 +13,7 @@ export default function QRGenerator({ eventId, eventTitle }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
 
   const generateQR = async () => {
     setLoading(true)
@@ -36,6 +37,7 @@ export default function QRGenerator({ eventId, eventTitle }: Props) {
         color: { dark: '#000000', light: '#ffffff' },
       })
       setQrDataUrl(dataUrl)
+      if (data.expiresAt) setExpiresAt(data.expiresAt)
       setShowModal(true)
     } catch {
       setError('Network error')
@@ -69,7 +71,11 @@ export default function QRGenerator({ eventId, eventTitle }: Props) {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-black font-black text-lg text-center">{eventTitle}</h2>
-            <p className="text-gray-500 text-xs text-center">Valid 5:00 AM – 2:00 PM on event day</p>
+            <p className="text-gray-500 text-xs text-center">
+              {expiresAt
+                ? `Valid until ${new Date(expiresAt).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true })} ET`
+                : 'Valid on event day'}
+            </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qrDataUrl} alt="Check-in QR Code" className="w-full max-w-[300px]" />
             <p className="text-gray-400 text-xs text-center">Show this QR code at the event for participants to scan</p>

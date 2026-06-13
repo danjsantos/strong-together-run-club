@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing token' }, { status: 400 })
   }
 
-  // Verify the JWT
+  // Verify the JWT — expiry is enforced by jose automatically
   let payload: { eventId: string; type: string }
   try {
     const result = await jwtVerify(token, QR_SECRET)
@@ -66,9 +66,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Event not found' }, { status: 404 })
   }
 
-  // Check-in is only allowed on the day of the event.
-  // All comparisons use America/New_York (ET) so the window is correct
-  // regardless of what UTC time the server reports.
+  // Check-in is only allowed on the day of the event (ET timezone)
   const TZ = 'America/New_York'
   const eventDate = new Date(event.date)
   const today = new Date()
@@ -80,15 +78,6 @@ export async function POST(request: NextRequest) {
 
   if (!sameDay) {
     return NextResponse.json({ error: 'Check-in is only available on the day of the event' }, { status: 400 })
-  }
-
-  // Enforce the 5 AM – 2 PM ET window on event day
-  const etHour = parseInt(
-    today.toLocaleString('en-US', { timeZone: TZ, hour: 'numeric', hour12: false }),
-    10
-  )
-  if (etHour < 5 || etHour >= 14) {
-    return NextResponse.json({ error: 'Check-in window is 5:00 AM – 2:00 PM ET on event day' }, { status: 400 })
   }
 
   // Insert check-in
