@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import { formatDate } from '@/lib/utils'
 import QRGenerator from '@/components/QRGenerator'
@@ -45,7 +44,6 @@ interface Props {
 
 export default function AdminDashboardClient({ events: initialEvents, memberCount, totalRsvps, rsvpCounts: initialRsvpCounts, checkinCounts: initialCheckinCounts }: Props) {
   const { t, language } = useLanguage()
-  const router = useRouter()
 
   const [events, setEvents] = useState<Event[]>(initialEvents)
   const [rsvpCounts, setRsvpCounts] = useState(initialRsvpCounts)
