@@ -24,8 +24,6 @@ function easternInputToUtc(localStr: string): string {
   if (!localStr) return ''
   // localStr is like "2026-06-14T07:00" — treat as Eastern time
   const [datePart, timePart] = localStr.split('T')
-  const [year, month, day] = datePart.split('-').map(Number)
-  const [hour, minute] = timePart.split(':').map(Number)
   // Use a trick: create date in UTC then adjust for Eastern offset
   // Easier: just pass to Date with timezone offset string
   // Eastern is UTC-4 (EDT) or UTC-5 (EST); use Intl to get current offset
