@@ -1,5 +1,8 @@
 import type { Language } from './translations'
 
+// All events are in Myrtle Beach, SC (America/New_York)
+const EVENT_TIMEZONE = 'America/New_York'
+
 export function formatDate(dateStr: string, language: Language): string {
   const date = new Date(dateStr)
   const locale = language === 'pt' ? 'pt-BR' : language === 'es' ? 'es-ES' : 'en-US'
@@ -8,6 +11,7 @@ export function formatDate(dateStr: string, language: Language): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: EVENT_TIMEZONE,
   })
 }
 
@@ -17,6 +21,7 @@ export function formatTime(dateStr: string, language: Language): string {
   return date.toLocaleTimeString(locale, {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: EVENT_TIMEZONE,
   })
 }
 
@@ -26,6 +31,7 @@ export function formatShortDate(dateStr: string, language: Language): string {
   return date.toLocaleDateString(locale, {
     month: 'short',
     day: 'numeric',
+    timeZone: EVENT_TIMEZONE,
   })
 }
 

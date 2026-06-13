@@ -5,6 +5,44 @@ import { useLanguage } from '@/components/providers/LanguageProvider'
 import { formatDate } from '@/lib/utils'
 import QRGenerator from '@/components/QRGenerator'
 
+// Convert UTC ISO string from DB → local datetime-local input value (America/New_York)
+function utcToEasternInput(utcStr: string): string {
+  if (!utcStr) return ''
+  const date = new Date(utcStr)
+  // Format as YYYY-MM-DDTHH:mm in Eastern time
+  const eastern = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(date)
+  const p = Object.fromEntries(eastern.map(x => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`
+}
+
+// Convert datetime-local input value (America/New_York) → UTC ISO string for DB
+function easternInputToUtc(localStr: string): string {
+  if (!localStr) return ''
+  // localStr is like "2026-06-14T07:00" — treat as Eastern time
+  const [datePart, timePart] = localStr.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  // Use a trick: create date in UTC then adjust for Eastern offset
+  // Easier: just pass to Date with timezone offset string
+  // Eastern is UTC-4 (EDT) or UTC-5 (EST); use Intl to get current offset
+  const tempDate = new Date(`${datePart}T${timePart}:00`)
+  // Get Eastern offset in minutes
+  const easternFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    timeZoneName: 'shortOffset',
+  })
+  const parts = easternFormatter.formatToParts(tempDate)
+  const offsetStr = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT-4'
+  const match = offsetStr.match(/GMT([+-]\d+)/)
+  const offsetHours = match ? parseInt(match[1]) : -4
+  const utcDate = new Date(tempDate.getTime() - offsetHours * 60 * 60 * 1000)
+  return utcDate.toISOString()
+}
+
 interface Event {
   id: string
   title: string
@@ -280,8 +318,8 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
                       <label className={labelClass}>{t.admin.eventDate}</label>
                       <input
                         type="datetime-local"
-                        value={editForm.date ? editForm.date.slice(0, 16) : ''}
-                        onChange={e => setEditForm(p => ({ ...p, date: e.target.value }))}
+                        value={editForm.date ? utcToEasternInput(editForm.date) : ''}
+                        onChange={e => setEditForm(p => ({ ...p, date: easternInputToUtc(e.target.value) }))}
                         className={inputClass}
                       />
                     </div>
