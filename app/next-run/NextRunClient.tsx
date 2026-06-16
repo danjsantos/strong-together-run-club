@@ -21,6 +21,7 @@ interface Event {
   location_pt: string | null
   google_maps_url: string | null
   google_maps_embed: string | null
+  cover_photo_url: string | null
 }
 interface NextRunClientProps {
   event: Event | null
@@ -95,12 +96,22 @@ export default function NextRunClient({ event, initialRsvpCount }: NextRunClient
   const description = (language === 'pt' && event.description_pt) ? event.description_pt : event.description
   const isUpcoming = new Date(event.date) > new Date()
 
+  // Use the event's own cover photo when available; fall back to the static banner.
+  const bannerSrc = event.cover_photo_url || '/next-run-banner.jpg'
+
   return (
     <>
       <div className="min-h-screen pt-20 pb-28 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex justify-center mb-8 mt-4">
-            <Image src="/next-run-banner.jpg" alt="Next Run Banner" width={500} height={700} className="rounded-2xl shadow-lg w-full max-w-sm object-contain" priority />
+            <Image
+              src={bannerSrc}
+              alt={title}
+              width={500}
+              height={700}
+              className="rounded-2xl shadow-lg w-full max-w-sm object-contain"
+              priority
+            />
           </div>
           <div className="text-center mb-10">
             <p className="text-white/40 text-xs font-semibold uppercase tracking-widest mb-2">{t.nextRun.title}</p>

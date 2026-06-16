@@ -228,6 +228,9 @@ export const translations = {
       photoAlt: 'Photo description',
       active: 'Active',
       inactive: 'Inactive',
+      eventBannerImage: 'Event Banner / Flyer',
+      uploadBannerImage: 'Upload Image',
+      changeBannerImage: 'Change Image',
     },
     footer: {
       tagline: 'Running stronger, together.',
@@ -484,6 +487,9 @@ export const translations = {
       photoAlt: 'Descrição da foto',
       active: 'Ativo',
       inactive: 'Inativo',
+      eventBannerImage: 'Banner / Flyer do Evento',
+      uploadBannerImage: 'Enviar Imagem',
+      changeBannerImage: 'Alterar Imagem',
     },
     footer: {
       tagline: 'Correndo mais fortes, juntos.',
@@ -740,6 +746,9 @@ export const translations = {
       photoAlt: 'Descripción de la foto',
       active: 'Activo',
       inactive: 'Inactivo',
+      eventBannerImage: 'Banner / Flyer del Evento',
+      uploadBannerImage: 'Subir Imagen',
+      changeBannerImage: 'Cambiar Imagen',
     },
     footer: {
       tagline: 'Corriendo más fuertes, juntos.',

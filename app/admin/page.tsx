@@ -18,7 +18,7 @@ export default async function AdminPage() {
   ] = await Promise.all([
     supabase
       .from('events')
-      .select('id, title, title_pt, date, location, is_active')
+      .select('id, title, title_pt, date, location, location_pt, description, description_pt, google_maps_url, google_maps_embed, is_active, cover_photo_url')
       .order('date', { ascending: false })
       .limit(20),
     supabase.from('profiles').select('*', { count: 'exact', head: true }),

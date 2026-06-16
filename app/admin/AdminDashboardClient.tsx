@@ -1,9 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useLanguage } from '@/components/providers/LanguageProvider'
 import { formatDate } from '@/lib/utils'
 import QRGenerator from '@/components/QRGenerator'
+import { createClient } from '@/lib/supabase/client'
 
 // Convert UTC ISO string from DB → local datetime-local input value (America/New_York)
 function utcToEasternInput(utcStr: string): string {
@@ -41,6 +43,49 @@ function easternInputToUtc(localStr: string): string {
   return utcDate.toISOString()
 }
 
+/**
+ * Convert any image file to a JPEG Blob using a canvas element.
+ */
+async function convertToJpeg(file: File, maxDimension = 2048, quality = 0.85): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new window.Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      let { width, height } = img
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width)
+          width = maxDimension
+        } else {
+          width = Math.round((width * maxDimension) / height)
+          height = maxDimension
+        }
+      }
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('Canvas not supported')); return }
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        blob => {
+          if (!blob) { reject(new Error('Failed to convert image')); return }
+          const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg'
+          resolve(new File([blob], newName, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        quality
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error(`Cannot load image: ${file.name}`))
+    }
+    img.src = url
+  })
+}
+
 interface Event {
   id: string
   title: string
@@ -56,6 +101,7 @@ interface Event {
   google_maps_url?: string | null
   google_maps_embed?: string | null
   is_active: boolean
+  cover_photo_url?: string | null
 }
 
 interface RsvpItem {
@@ -99,6 +145,11 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
   const [savingEdit, setSavingEdit] = useState(false)
   const [editError, setEditError] = useState('')
   const [editSuccess, setEditSuccess] = useState('')
+
+  // Image upload state for inline edit
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imageUploadError, setImageUploadError] = useState('')
+  const editImageInputRef = useRef<HTMLInputElement>(null)
 
   const upcomingRuns = events.filter(e => new Date(e.date) > new Date()).length
 
@@ -184,6 +235,7 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
     setEditForm({ ...event })
     setEditError('')
     setEditSuccess('')
+    setImageUploadError('')
     // Close the RSVP accordion if open
     if (expandedEvent === event.id) setExpandedEvent(null)
   }
@@ -193,6 +245,7 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
     setEditForm({})
     setEditError('')
     setEditSuccess('')
+    setImageUploadError('')
   }
 
   const saveEdit = async () => {
@@ -221,6 +274,45 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
       setEditError(data.error || 'Failed to update event')
     }
     setSavingEdit(false)
+  }
+
+  // Upload a banner image from the inline edit form
+  const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploadingImage(true)
+    setImageUploadError('')
+
+    try {
+      const supabase = createClient()
+
+      let processedFile = file
+      try {
+        processedFile = await convertToJpeg(file)
+      } catch {
+        // Fall back to original
+      }
+
+      const filename = `banners/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`
+
+      const { error: storageError } = await supabase.storage
+        .from('event-photos')
+        .upload(filename, processedFile, { contentType: 'image/jpeg', upsert: false })
+
+      if (storageError) throw new Error(storageError.message)
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('event-photos')
+        .getPublicUrl(filename)
+
+      setEditForm(prev => ({ ...prev, cover_photo_url: publicUrl }))
+    } catch (err) {
+      setImageUploadError(err instanceof Error ? err.message : 'Upload failed')
+    } finally {
+      setUploadingImage(false)
+      if (editImageInputRef.current) editImageInputRef.current.value = ''
+    }
   }
 
   const inputClass = 'w-full bg-white/5 border border-white/20 rounded-xl px-3 py-2.5 text-white placeholder-white/30 text-sm focus:outline-none focus:border-brand-pink transition-colors'
@@ -354,6 +446,82 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
                       />
                     </div>
 
+                    {/* ── Banner Image ── */}
+                    <div>
+                      <label className={labelClass}>
+                        {t.admin.eventBannerImage}
+                        <span className="ml-1 text-white/30 normal-case">({t.common.optional})</span>
+                      </label>
+
+                      {editForm.cover_photo_url && (
+                        <div className="relative mb-2 inline-block">
+                          <Image
+                            src={editForm.cover_photo_url}
+                            alt="Banner preview"
+                            width={120}
+                            height={168}
+                            className="rounded-lg object-contain border border-white/10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setEditForm(p => ({ ...p, cover_photo_url: '' }))}
+                            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition-colors"
+                            title="Remove image"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => editImageInputRef.current?.click()}
+                          disabled={uploadingImage}
+                          className="flex items-center gap-1.5 bg-white/5 border border-white/20 rounded-xl px-3 py-2 text-white/60 text-xs hover:bg-white/10 hover:border-brand-pink/40 transition-colors disabled:opacity-50"
+                        >
+                          {uploadingImage ? (
+                            <>
+                              <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                              {t.common.loading}
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                              {editForm.cover_photo_url ? t.admin.changeBannerImage : t.admin.uploadBannerImage}
+                            </>
+                          )}
+                        </button>
+
+                        {!editForm.cover_photo_url && (
+                          <input
+                            type="url"
+                            value={editForm.cover_photo_url || ''}
+                            onChange={e => setEditForm(p => ({ ...p, cover_photo_url: e.target.value }))}
+                            placeholder="or paste URL…"
+                            className="flex-1 bg-white/5 border border-white/20 rounded-xl px-3 py-2 text-white placeholder-white/30 text-xs focus:outline-none focus:border-brand-pink transition-colors"
+                          />
+                        )}
+                      </div>
+
+                      <input
+                        ref={editImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleEditImageUpload}
+                        className="hidden"
+                      />
+
+                      {imageUploadError && (
+                        <p className="text-red-400 text-xs mt-1">{imageUploadError}</p>
+                      )}
+                    </div>
+
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
@@ -402,6 +570,14 @@ export default function AdminDashboardClient({ events: initialEvents, memberCoun
                       <p className="text-white/40 text-xs mt-0.5">
                         {formatDate(event.date, language)} · {event.location}
                       </p>
+                      {event.cover_photo_url && (
+                        <p className="text-brand-pink/60 text-xs mt-0.5 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                          Banner set
+                        </p>
+                      )}
                     </div>
 
                     {/* RSVP + Check-in badges */}

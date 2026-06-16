@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { title, title_pt, description, description_pt, date, location, location_pt, google_maps_url, google_maps_embed, is_active } = body
+  const { title, title_pt, description, description_pt, date, location, location_pt, google_maps_url, google_maps_embed, is_active, cover_photo_url } = body
 
   if (!title?.trim() || !date || !location?.trim()) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     google_maps_url: google_maps_url?.trim() || null,
     google_maps_embed: google_maps_embed?.trim() || null,
     is_active: is_active ?? true,
+    cover_photo_url: cover_photo_url?.trim() || null,
   }).select().single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -39,7 +40,7 @@ export async function PUT(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await request.json()
-  const { id, title, title_pt, description, description_pt, date, location, location_pt, google_maps_url, google_maps_embed, is_active } = body
+  const { id, title, title_pt, description, description_pt, date, location, location_pt, google_maps_url, google_maps_embed, is_active, cover_photo_url } = body
 
   if (!id) return NextResponse.json({ error: 'Missing event id' }, { status: 400 })
 
@@ -57,6 +58,7 @@ export async function PUT(request: NextRequest) {
       google_maps_url: google_maps_url?.trim() || null,
       google_maps_embed: google_maps_embed?.trim() || null,
       is_active,
+      cover_photo_url: cover_photo_url !== undefined ? (cover_photo_url?.trim() || null) : undefined,
     })
     .eq('id', id)
     .select()
