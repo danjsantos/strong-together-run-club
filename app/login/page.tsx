@@ -165,7 +165,7 @@ function LoginContent() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=${redirectTo}`,
+        redirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     })
   }
@@ -211,7 +211,7 @@ function LoginContent() {
       password: suPassword,
       options: {
         data: { full_name: suDisplayName.trim() },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${redirectTo}`,
+        emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     })
 

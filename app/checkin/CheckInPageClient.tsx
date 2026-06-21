@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Status = 'idle' | 'scanning' | 'loading' | 'success' | 'error' | 'already'
 
 export default function CheckInPageClient() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const tokenFromUrl = searchParams.get('token')
 
@@ -35,6 +36,10 @@ export default function CheckInPageClient() {
       const data = await res.json()
       if (res.ok) {
         setStatus('success')
+      } else if (res.status === 401) {
+        // Not logged in — redirect to login preserving the check-in URL
+        const currentPath = `/checkin?token=${encodeURIComponent(token)}`
+        router.push(`/login?redirectTo=${encodeURIComponent(currentPath)}`)
       } else if (res.status === 409) {
         setStatus('already')
       } else {
