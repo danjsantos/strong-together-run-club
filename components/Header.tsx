@@ -119,6 +119,7 @@ export default function Header() {
     ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
     ...(isAdmin ? [{ href: '/admin', label: t.nav.admin }] : []),
     ...(isAdmin ? [{ href: '/admin/sponsors', label: 'Sponsors' }] : []),
+    ...(isAdmin ? [{ href: '/admin/metrics', label: 'Metrics' }] : []),
   ]
 
   return (
