@@ -3,6 +3,7 @@ import HeroSection from '@/components/HeroSection'
 import StatsSection from '@/components/StatsSection'
 import NextRunPreview from '@/components/NextRunPreview'
 import PhotoGallery from '@/components/PhotoGallery'
+import SponsorsSection from '@/components/SponsorsSection'
 
 export default async function HomePage() {
   const supabase = createClient()
@@ -72,6 +73,13 @@ export default async function HomePage() {
     events: eventTitleMap[p.event_id] ?? null,
   }))
 
+  // Sponsors (table may not exist yet; query fails soft to an empty list)
+  const { data: sponsorRows } = await supabase
+    .from('sponsors')
+    .select('id, name, logo_url, link_url')
+    .eq('active', true)
+    .order('sort_order', { ascending: true })
+
   return (
     <>
       <HeroSection />
@@ -80,6 +88,7 @@ export default async function HomePage() {
         <NextRunPreview event={nextEvent} rsvpCount={nextEventRsvps || 0} />
       )}
       <PhotoGallery photos={photos} />
+      <SponsorsSection sponsors={sponsorRows ?? []} />
     </>
   )
 }

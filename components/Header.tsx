@@ -118,6 +118,7 @@ export default function Header() {
     { href: '/about', label: (t.nav as Record<string, string>).about },
     ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
     ...(isAdmin ? [{ href: '/admin', label: t.nav.admin }] : []),
+    ...(isAdmin ? [{ href: '/admin/sponsors', label: 'Sponsors' }] : []),
   ]
 
   return (
