@@ -46,6 +46,7 @@ interface Props {
   nextEvent: NextEvent | null
   hasRsvp: boolean
   leaderboardPosition: number | null
+  streak: number
 }
 
 // ─── Sidebar nav item ─────────────────────────────────────────────────────────
@@ -113,6 +114,7 @@ export default function DashboardClient({
   nextEvent,
   hasRsvp: initialHasRsvp,
   leaderboardPosition,
+  streak,
 }: Props) {
   const router = useRouter()
   const [hasRsvp, setHasRsvp] = useState(initialHasRsvp)
@@ -283,8 +285,8 @@ export default function DashboardClient({
             </div>
           )}
 
-          {/* ── Top 3 cards ─────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* ── Top cards ───────────────────────────────────────────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
             {/* Card 1: Total check-ins */}
             <StatCard>
@@ -294,6 +296,22 @@ export default function DashboardClient({
               </div>
               <p className="text-4xl font-black text-white">{totalCheckins}</p>
               <p className="text-white/40 text-xs">runs attended</p>
+            </StatCard>
+
+            {/* Card: Week streak */}
+            <StatCard>
+              <div className="flex items-center justify-between">
+                <p className="text-white/50 text-xs font-semibold uppercase tracking-wider">Week Streak</p>
+                <span className="text-2xl">🔥</span>
+              </div>
+              <p className="text-4xl font-black text-white">{streak}</p>
+              <p className="text-white/40 text-xs">
+                {streak === 0
+                  ? 'check in weekly to start a streak'
+                  : streak === 1
+                  ? 'week in a row'
+                  : 'weeks in a row'}
+              </p>
             </StatCard>
 
             {/* Card 2: Next upcoming run */}

@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { computeWeekStreak } from '@/lib/streaks'
 import DashboardClient from './DashboardClient'
 
 export const dynamic = 'force-dynamic'
@@ -47,6 +48,13 @@ export default async function DashboardPage() {
     .order('checked_in_at', { ascending: false })
     .limit(10)
 
+  // Fetch all check-in dates (lightweight) for the consecutive-week streak
+  const { data: streakRows } = await supabase
+    .from('checkins')
+    .select('checked_in_at')
+    .eq('profile_id', user.id)
+  const streak = computeWeekStreak((streakRows ?? []).map((r) => r.checked_in_at))
+
   // Fetch next upcoming event
   const { data: nextEvent } = await supabase
     .from('events')
@@ -93,6 +101,7 @@ export default async function DashboardPage() {
       nextEvent={nextEvent ?? null}
       hasRsvp={hasRsvp}
       leaderboardPosition={leaderboardPosition}
+      streak={streak}
     />
   )
 }
