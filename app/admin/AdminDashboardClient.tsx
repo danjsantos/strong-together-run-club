@@ -21,26 +21,26 @@ function utcToEasternInput(utcStr: string): string {
   return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`
 }
 
-// Convert datetime-local input value (America/New_York) → UTC ISO string for DB
+// Minutes to add to a UTC instant to reach America/New_York wall time
+// (EDT = -240, EST = -300). Browser-timezone independent.
+function easternOffsetMinutes(utcMs: number): number {
+  const d = new Date(utcMs)
+  const etWall = new Date(d.toLocaleString('en-US', { timeZone: 'America/New_York' }))
+  const utcWall = new Date(d.toLocaleString('en-US', { timeZone: 'UTC' }))
+  return Math.round((etWall.getTime() - utcWall.getTime()) / 60000)
+}
+
+// Convert a datetime-local value (which represents Eastern wall time) → UTC ISO
+// string for the DB. Independent of the editor's own timezone.
 function easternInputToUtc(localStr: string): string {
   if (!localStr) return ''
-  // localStr is like "2026-06-14T07:00" — treat as Eastern time
   const [datePart, timePart] = localStr.split('T')
-  // Use a trick: create date in UTC then adjust for Eastern offset
-  // Easier: just pass to Date with timezone offset string
-  // Eastern is UTC-4 (EDT) or UTC-5 (EST); use Intl to get current offset
-  const tempDate = new Date(`${datePart}T${timePart}:00`)
-  // Get Eastern offset in minutes
-  const easternFormatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
-    timeZoneName: 'shortOffset',
-  })
-  const parts = easternFormatter.formatToParts(tempDate)
-  const offsetStr = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT-4'
-  const match = offsetStr.match(/GMT([+-]\d+)/)
-  const offsetHours = match ? parseInt(match[1]) : -4
-  const utcDate = new Date(tempDate.getTime() - offsetHours * 60 * 60 * 1000)
-  return utcDate.toISOString()
+  const [y, mo, d] = datePart.split('-').map(Number)
+  const [h, mi] = (timePart || '00:00').split(':').map(Number)
+  // Treat the wall time as if it were UTC, then correct by ET's offset at that instant.
+  const asIfUtc = Date.UTC(y, mo - 1, d, h, mi)
+  const offsetMin = easternOffsetMinutes(asIfUtc)
+  return new Date(asIfUtc - offsetMin * 60000).toISOString()
 }
 
 /**

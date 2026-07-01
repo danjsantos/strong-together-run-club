@@ -91,6 +91,7 @@ function formatDate(dateStr: string) {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
+    timeZone: 'America/New_York',
   })
 }
 
@@ -98,6 +99,7 @@ function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString('en-US', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'America/New_York',
   })
 }
 
