@@ -241,7 +241,7 @@ function LoginContent() {
     setFpError('')
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(fpEmail.trim(), {
-      redirectTo: `${window.location.origin}/api/auth/callback?next=/profile`,
+      redirectTo: `${window.location.origin}/api/auth/confirm?next=/reset-password`,
     })
     if (error) {
       setFpError(error.message)
